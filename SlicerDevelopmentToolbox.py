@@ -2,20 +2,20 @@ import slicer
 from slicer.ScriptedLoadableModule import *
 
 
-class SlicerProstateClass(object):
+class SlicerDevelopmentToolboxClass(object):
 
   def __init__(self):
     pass
 
 
-class SlicerProstate(ScriptedLoadableModule):
+class SlicerDevelopmentToolbox(ScriptedLoadableModule):
   """
   This class is the 'hook' for slicer to detect and recognize the plugin
   as a loadable scripted module
   """
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    parent.title = "SlicerProstate Utils"
+    parent.title = "SlicerDevelopmentToolbox Utils"
     parent.categories = ["Developer Tools.Utils"]
     parent.hidden = True
     parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL)"]
@@ -25,8 +25,8 @@ class SlicerProstate(ScriptedLoadableModule):
     No module interface here.
     """
     parent.acknowledgementText = """
-    These SlicerProstate utils were developed by
+    These SlicerDevelopmentToolbox utils were developed by
     Christian Herz, SPL
     """
 
-    slicer.modules.slicerprostate = SlicerProstateClass
+    slicer.modules.slicerprostate = SlicerDevelopmentToolboxClass

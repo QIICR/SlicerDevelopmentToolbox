@@ -3,7 +3,7 @@ import os, logging
 import slicer
 import SimpleITK as sitk
 import sitkUtils
-from SlicerProstateUtils.decorators import multimethod
+from SlicerDevelopmentToolboxUtils.decorators import multimethod
 
 
 class ParameterNodeObservationMixin(object):

@@ -6,12 +6,12 @@ import time
 
 from multiprocessing.dummy import Pool as ThreadPool
 
-from SlicerProstateUtils.helpers import DirectoryWatcher
-from SlicerProstateUtils.mixins import ModuleLogicMixin
+from SlicerDevelopmentToolboxUtils.helpers import DirectoryWatcher
+from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 
 from SampleData import SampleDataLogic
 
-__all__ = ['SlicerProstateTests']
+__all__ = ['SlicerDevelopmentToolboxTests']
 
 
 class DirectoryWatcherTest(unittest.TestCase, ModuleLogicMixin):
@@ -20,7 +20,7 @@ class DirectoryWatcherTest(unittest.TestCase, ModuleLogicMixin):
   def setUpClass(cls):
     slicer.mrmlScene.Clear(0)
     cls.tempDir = slicer.app.temporaryPath
-    cls.watchedDirectory = os.path.join(cls.tempDir, "SlicerProstateTesting", cls.__class__.__name__)
+    cls.watchedDirectory = os.path.join(cls.tempDir, "SlicerDevelopmentToolboxTesting", cls.__class__.__name__)
     cls.createDirectory(cls.watchedDirectory)
     cls.watcher = DirectoryWatcher(cls.watchedDirectory)
     cls.sampleDataLogic = SampleDataLogic()
@@ -30,7 +30,7 @@ class DirectoryWatcherTest(unittest.TestCase, ModuleLogicMixin):
     cls.fileCountChangedEmitted = False
 
   # def tearDown(self):
-  #   shutil.rmtree(os.path.join(slicer.app.temporaryPath, "SlicerProstateTesting"))
+  #   shutil.rmtree(os.path.join(slicer.app.temporaryPath, "SlicerDevelopmentToolboxTesting"))
 
   def runTest(self):
     self.test_DirectoryWatcherEvents()

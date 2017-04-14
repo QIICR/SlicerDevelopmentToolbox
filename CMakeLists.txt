@@ -1,5 +1,28 @@
+cmake_minimum_required(VERSION 2.8.9)
+
+project(SlicerDevelopmentToolbox)
+
 #-----------------------------------------------------------------------------
-set(MODULE_NAME SlicerProstate)
+# Extension meta-information
+set(EXTENSION_HOMEPAGE "http://wiki.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/SlicerDevelopmentToolbox")
+set(EXTENSION_CATEGORY "Informatics Utilities 'Developer Tools'")
+set(EXTENSION_CONTRIBUTORS "Christian Herz (Brigham and Women's Hospital), Andrey Fedorov (Brigham and Women's Hospital)")
+set(EXTENSION_DESCRIPTION "SlicerDevelopmentToolbox extension facilitates the development process of modules/extensions with a large variety of widgets, helpers, decorators, events, constants and mixin classes")
+set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki/images/8/87/SlicerDevelopmentToolbox_Logo_1.0_128x128.png")
+set(EXTENSION_SCREENSHOTURLS "")
+
+#-----------------------------------------------------------------------------
+# Extension dependencies
+find_package(Slicer REQUIRED)
+include(${Slicer_USE_FILE})
+
+#-----------------------------------------------------------------------------
+if(NOT Slicer_SOURCE_DIR)
+  include(${Slicer_EXTENSION_CPACK})
+endif()
+
+#-----------------------------------------------------------------------------
+set(MODULE_NAME SlicerDevelopmentToolbox)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS

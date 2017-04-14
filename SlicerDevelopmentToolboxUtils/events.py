@@ -1,6 +1,6 @@
 import vtk, slicer
 
-class SlicerProstateEvents(object):
+class SlicerDevelopmentToolboxEvents(object):
 
   NewImageDataReceivedEvent = vtk.vtkCommand.UserEvent + 100
   NewFileIndexedEvent = vtk.vtkCommand.UserEvent + 101

@@ -14,16 +14,16 @@ import slicer
 import vtk
 from DICOMLib import DICOMProcess
 from constants import DICOMTAGS
-from events import SlicerProstateEvents
+from events import SlicerDevelopmentToolboxEvents
 from mixins import ModuleLogicMixin, ModuleWidgetMixin, ParameterNodeObservationMixin
 
 
 class SampleDataDownloader(FancyURLopener, ParameterNodeObservationMixin):
 
-  EVENTS = {'status_changed':SlicerProstateEvents.StatusChangedEvent,
-            'download_canceled': SlicerProstateEvents.DownloadCanceledEvent, # TODO: Implement cancel
-            'download_finished': SlicerProstateEvents.DownloadFinishedEvent,
-            'download_failed': SlicerProstateEvents.DownloadFailedEvent}
+  EVENTS = {'status_changed': SlicerDevelopmentToolboxEvents.StatusChangedEvent,
+            'download_canceled': SlicerDevelopmentToolboxEvents.DownloadCanceledEvent, # TODO: Implement cancel
+            'download_finished': SlicerDevelopmentToolboxEvents.DownloadFinishedEvent,
+            'download_failed': SlicerDevelopmentToolboxEvents.DownloadFailedEvent}
 
   def __init__(self, enableLogging=False):
     super(SampleDataDownloader, self).__init__()
@@ -165,9 +165,9 @@ class SampleDataDownloader(FancyURLopener, ParameterNodeObservationMixin):
 
 class DirectoryWatcher(ModuleLogicMixin):
 
-  StartedWatchingEvent = SlicerProstateEvents.DICOMReceiverStartedEvent
-  StoppedWatchingEvent = SlicerProstateEvents.DICOMReceiverStoppedEvent
-  IncomingFileCountChangedEvent = SlicerProstateEvents.IncomingFileCountChangedEvent
+  StartedWatchingEvent = SlicerDevelopmentToolboxEvents.DICOMReceiverStartedEvent
+  StoppedWatchingEvent = SlicerDevelopmentToolboxEvents.DICOMReceiverStoppedEvent
+  IncomingFileCountChangedEvent = SlicerDevelopmentToolboxEvents.IncomingFileCountChangedEvent
 
   SUPPORTED_EVENTS = [StartedWatchingEvent, StoppedWatchingEvent, IncomingFileCountChangedEvent]
 
@@ -225,7 +225,7 @@ class DirectoryWatcher(ModuleLogicMixin):
 
 class TimeoutDirectoryWatcher(DirectoryWatcher):
 
-  IncomingDataReceiveFinishedEvent = SlicerProstateEvents.IncomingDataReceiveFinishedEvent
+  IncomingDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent
 
   SUPPORTED_EVENTS = DirectoryWatcher.SUPPORTED_EVENTS + [IncomingDataReceiveFinishedEvent]
 
@@ -271,9 +271,9 @@ class SmartDICOMReceiver(ModuleLogicMixin):
   NAME = "SmartDICOMReceiver"
   STATUS_RECEIVING = "{}: Receiving DICOM data".format(NAME)
 
-  StatusChangedEvent = SlicerProstateEvents.StatusChangedEvent
-  DICOMReceiverStartedEvent = SlicerProstateEvents.DICOMReceiverStartedEvent
-  DICOMReceiverStoppedEvent = SlicerProstateEvents.DICOMReceiverStoppedEvent
+  StatusChangedEvent = SlicerDevelopmentToolboxEvents.StatusChangedEvent
+  DICOMReceiverStartedEvent = SlicerDevelopmentToolboxEvents.DICOMReceiverStartedEvent
+  DICOMReceiverStoppedEvent = SlicerDevelopmentToolboxEvents.DICOMReceiverStoppedEvent
   IncomingDataReceiveFinishedEvent = TimeoutDirectoryWatcher.IncomingDataReceiveFinishedEvent
   IncomingFileCountChangedEvent = TimeoutDirectoryWatcher.IncomingFileCountChangedEvent
 
@@ -677,15 +677,15 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
   def onButtonClicked(self, button):
     self.hide()
     if button is self.skipButton:
-      self.invokeEvent(SlicerProstateEvents.IncomingDataSkippedEvent)
+      self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataSkippedEvent)
     else:
-      self.invokeEvent(SlicerProstateEvents.IncomingDataCanceledEvent)
+      self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataCanceledEvent)
       if self.dicomSender:
         self.dicomSender.stop()
 
   def onReceiveFinished(self, caller, event):
     self.hide()
-    self.invokeEvent(SlicerProstateEvents.IncomingDataReceiveFinishedEvent)
+    self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent)
 
   def onImportDirectorySelected(self, directory):
     self.dicomSender = DICOMDirectorySender(directory, 'localhost', 11112)
@@ -852,7 +852,7 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin, ParameterNodeObservationMixin)
     if self.disabledWidget:
       self.disabledWidget.enabled = True
       self.disabledWidget = None
-    self.invokeEvent(SlicerProstateEvents.RatingWindowClosedEvent, str(self.ratingScore))
+    self.invokeEvent(SlicerDevelopmentToolboxEvents.RatingWindowClosedEvent, str(self.ratingScore))
     self.hide()
 
 

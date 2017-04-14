@@ -1,6 +1,6 @@
 import qt, vtk, slicer
 import inspect, os, sys
-from events import SlicerProstateEvents
+from events import SlicerDevelopmentToolboxEvents
 from mixins import ParameterNodeObservationMixin
 from helpers import SettingsMessageBox
 
@@ -138,7 +138,7 @@ class CheckableIconButton(BasicIconButton):
 class CrosshairButton(CheckableIconButton, ParameterNodeObservationMixin):
 
   FILE_NAME = 'SlicesCrosshair.png'
-  CursorPositionModifiedEvent = SlicerProstateEvents.CursorPositionModifiedEvent
+  CursorPositionModifiedEvent = SlicerDevelopmentToolboxEvents.CursorPositionModifiedEvent
   DEFAULT_CROSSHAIR_MODE = slicer.vtkMRMLCrosshairNode.ShowSmallBasic
 
   def __init__(self, title="", parent=None, **kwargs):
