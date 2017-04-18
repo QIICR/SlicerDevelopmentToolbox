@@ -1,0 +1,239 @@
+@startuml
+
+skinparam classBackgroundColor white
+
+package "qt" #41cd52 {
+
+  class QWidget
+  class QMessageBox
+  class QGroupBox
+  class DICOMProcess
+  class QPushButton
+}
+
+package "buttons" #0077ff {
+  abstract class BasicIconButton {
+    + {abstract} ICON_FILENAME=None
+    + buttonIcon
+    __
+    + onAboutToBeDestroyed(obj)
+    # _connectSignals()
+
+  }
+
+  abstract class CheckableIconButton {
+    .. slots ..
+    {abstract} onToggled(checked)
+  }
+
+  abstract class LayoutButton {
+     + {abstract} LAYOUT=None
+     __
+     .. properties ..
+     + layoutManager
+     .. slots ..
+     + onLayoutChanged(layout)
+  }
+
+  class ModuleSettingsButton {
+    .. slots ..
+    + onClicked()
+  }
+
+  class RedSliceLayoutButton {
+    + LAYOUT=slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView
+  }
+
+  class FourUpLayoutButton {
+    + LAYOUT=slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView
+  }
+
+  class FourUpTableViewLayoutButton {
+    + LAYOUT=slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpTableView
+  }
+
+  class SideBySideLayoutButton {
+    + LAYOUT=slicer.vtkMRMLLayoutNode.SlicerLayoutSideBySideView
+  }
+
+  class CrosshairButton{
+    + DEFAULT_CROSSHAIR_MODE=slicer.vtkMRMLCrosshairNode.ShowSmallBasic
+    __
+    # _setCrosshairMode(mode)
+    # _setSliceIntersectionEnabled(enabled)
+    # _connectCrosshairNode()
+    # _disconnectCrosshairNode()
+    .. slots ..
+    + onCursorPositionChanged()
+  }
+
+  class WindowLevelEffectsButton {
+    .. properties ..
+    + sliceWidgets
+    __
+    + wlEffects: dict(sliceWidget:WindowLevelEffect)
+    __
+    + refreshForAllAvailableSliceWidgets()
+    + cleanupSliceWidgets()
+    + addSliceWidget(sliceWidget)
+    + removeSliceWidget(sliceWidget)
+    __
+    # _enableWindowLevelEffects()
+    # _disableWindowLevelEffects()
+  }
+
+  BasicIconButton <|-- ModuleSettingsButton
+  CheckableIconButton <|-- LayoutButton
+  LayoutButton <|-- RedSliceLayoutButton
+  LayoutButton <|-- FourUpLayoutButton
+  LayoutButton <|-- FourUpTableViewLayoutButton
+  LayoutButton <|-- SideBySideLayoutButton
+
+  BasicIconButton <|-- CheckableIconButton
+  CheckableIconButton <|-- CrosshairButton
+  CheckableIconButton <|-- WindowLevelEffectsButton
+
+}
+
+package "helpers" #008822 {
+  class SampleDataDownloader {
+    .. events ..
+    + StatusChangedEvent
+    + DownloadCanceledEvent
+    + DownloadFinishedEvent
+    + DownloadFailedEvent
+    __
+    + downloadFileIntoCache(uri, name)
+    + downloadFile(uri, destFolderPath, name)
+    + cancelDownload()
+  }
+
+  class DirectoryWatcher {
+    .. events ..
+    + StartedWatchingEvent
+    + StoppedWatchingEvent
+    + IncomingFileCountChangedEvent
+    __
+    + start()
+    + stop()
+    __
+    # _startWatching()
+    # _onFileCountChanged(count)
+  }
+
+  class TimeoutDirectoryWatcher {
+    .. events ..
+    + IncomingDataReceiveFinishedEvent
+    __
+    # _checkIfStillSameFileCount()
+  }
+
+  class SmartDICOMReceiver {
+    .. events ..
+    + StatusChangedEvent
+    + DICOMReceiverStartedEvent
+    + DICOMReceiverStoppedEvent
+    + IncomingDataReceiveFinishedEvent
+    + IncomingFileCountChangedEvent
+    .. slots ..
+    + onDataReceivedFinished()
+    + onIncomingFileCountChanged(caller, event, callData)
+    __
+    + start(runStoreSCP=True)
+    + stop()
+    + startStoreSCP()
+    + stopStoreSCP()
+    + forceStatusChangeEventUpdate()
+    __
+    # _updateStatus(text)
+  }
+  class WindowLevelEffect {
+    + enable()
+    + disable()
+    __
+    # _updateNodeWL(node, startWindowLevel, startXY)
+    # _createWLCursor()
+    # _processEvent(caller, event)
+  }
+
+  class SliceAnnotation
+  class WatchBoxAttribute
+
+  DICOMProcess <|-- DICOMDirectorySender
+}
+
+
+package "widgets" #00FFFF {
+  class SettingsMessageBox
+  class CustomStatusProgressbar
+  class TargetCreationWidget
+  class ExtendedQMessageBox
+  class IncomingDataMessageBox
+  class IncomingDataWindow
+  class RatingWindow
+  class BasicInformationWatchBox
+  class FileBasedInformationWatchBox
+  class XMLBasedInformationWatchBox
+  class DICOMBasedInformationWatchBox
+
+  BasicInformationWatchBox <|-- FileBasedInformationWatchBox
+  FileBasedInformationWatchBox <|-- XMLBasedInformationWatchBox
+  FileBasedInformationWatchBox <|-- DICOMBasedInformationWatchBox
+
+  ExtendedQMessageBox <|-- IncomingDataMessageBox
+}
+
+package "mixins" #c3ff00 {
+  class ParameterNodeObservationMixin
+  class GeneralModuleMixin
+  class ModuleWidgetMixin
+  class ModuleLogicMixin
+
+  ParameterNodeObservationMixin <|-- GeneralModuleMixin
+  GeneralModuleMixin <|-- ModuleWidgetMixin
+  GeneralModuleMixin <|-- ModuleLogicMixin
+
+}
+
+package "metaclasses" #d398aa {
+  class Singleton
+}
+
+package "decorators" #97b7d2 {
+  class logmethod
+  class onModuleSelected
+  class MultiMethod
+  class processEventsEvery
+}
+
+SettingsMessageBox <.. ModuleSettingsButton: uses
+WindowLevelEffect <.. WindowLevelEffectsButton::wlEffects : 0..n
+
+
+ParameterNodeObservationMixin <|-- SampleDataDownloader
+FancyURLopener <|-- SampleDataDownloader
+
+DirectoryWatcher <|-- TimeoutDirectoryWatcher
+
+ModuleLogicMixin <|-- SmartDICOMReceiver
+ModuleLogicMixin <|-- DirectoryWatcher
+
+ModuleWidgetMixin <|-- IncomingDataWindow
+ModuleWidgetMixin <|-- TargetCreationWidget
+ModuleWidgetMixin <|-- RatingWindow
+
+QWidget <|-- IncomingDataWindow
+QWidget <|-- TargetCreationWidget
+QWidget <|-- CustomStatusProgressbar
+QWidget <|-- RatingWindow
+
+QMessageBox <|-- SettingsMessageBox
+QMessageBox <|-- ExtendedQMessageBox
+
+QGroupBox <|-- BasicInformationWatchBox
+
+QPushButton <|-- BasicIconButton
+
+
+
+@enduml

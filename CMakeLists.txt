@@ -17,11 +17,6 @@ find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
-if(NOT Slicer_SOURCE_DIR)
-  include(${Slicer_EXTENSION_CPACK})
-endif()
-
-#-----------------------------------------------------------------------------
 set(MODULE_NAME SlicerDevelopmentToolbox)
 
 #-----------------------------------------------------------------------------
@@ -33,7 +28,6 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Utils/constants.py
   ${MODULE_NAME}Utils/decorators.py
   ${MODULE_NAME}Utils/metaclasses.py
-  ${MODULE_NAME}Utils/signal.py
   ${MODULE_NAME}Utils/events.py
   ${MODULE_NAME}Utils/widgets.py
   ${MODULE_NAME}Utils/buttons.py
@@ -64,4 +58,9 @@ slicerMacroBuildScriptedModule(
 
 if(BUILD_TESTING)
   add_subdirectory(Testing)
+endif()
+
+#-----------------------------------------------------------------------------
+if(NOT Slicer_SOURCE_DIR)
+  include(${Slicer_EXTENSION_CPACK})
 endif()

@@ -1,5 +1,6 @@
 import slicer
 from slicer.ScriptedLoadableModule import *
+import SlicerDevelopmentToolboxUtils
 
 
 class SlicerDevelopmentToolboxClass(object):
@@ -29,4 +30,4 @@ class SlicerDevelopmentToolbox(ScriptedLoadableModule):
     Christian Herz, SPL
     """
 
-    slicer.modules.slicerprostate = SlicerDevelopmentToolboxClass
+    slicer.modules.slicerSDT = SlicerDevelopmentToolboxClass
