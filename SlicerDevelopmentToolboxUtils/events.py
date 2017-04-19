@@ -14,8 +14,6 @@ class SlicerDevelopmentToolboxEvents(object):
 
   StatusChangedEvent = vtk.vtkCommand.UserEvent + 206
 
-  RatingWindowClosedEvent = vtk.vtkCommand.UserEvent + 304
-
   DownloadCanceledEvent = vtk.vtkCommand.UserEvent + 401
   DownloadFinishedEvent = vtk.vtkCommand.UserEvent + 402
   DownloadFailedEvent = vtk.vtkCommand.UserEvent + 403

@@ -157,31 +157,139 @@ package "helpers" #008822 {
   }
 
   class SliceAnnotation
-  class WatchBoxAttribute
+  class WatchBoxAttribute {
+    + MASKED_PLACEHOLDER="X"
+    + TRUNCATE_LENGTH=None
+    .. properties ..
+    + title
+    + masked
+    + value
+    + originalValue
+    __
+    + maskedValue(value):string
+    + updateVisibleValues(value)
+
+  }
 
   DICOMProcess <|-- DICOMDirectorySender
 }
 
 
 package "widgets" #00FFFF {
-  class SettingsMessageBox
-  class CustomStatusProgressbar
-  class TargetCreationWidget
+  class SettingsMessageBox {
+    + moduleName
+    + keyElementPairs: dict
+    __
+    + getSettingNames(): []
+    .. slots ..
+    + onOkButtonClicked()
+
+  }
+
+  class CustomStatusProgressbar {
+    + STYLE="QWidget{background-color:#FFFFFF;}"
+    .. properties ..
+    + text
+    + value
+    + maximum
+    __
+    + reset()
+    + updateStatus(text, value=None)
+    + refreshProgressVisibility()
+  }
+
+  class TargetCreationWidget {
+    + HEADERS=["Name","Delete"]
+    + MODIFIED_EVENT="ModifiedEvent"
+    + DEFAULT_FIDUCIAL_LIST_NAME=None
+    + DEFAULT_CREATE_FIDUCIALS_TEXT="Place Target(s)"
+    + DEFAULT_MODIFY_FIDUCIALS_TEXT="Modify Target(s)"
+    + ICON_SIZE=qt.QSize(24, 24)
+    .. events ..
+    + TargetingStartedEvent
+    + TargetingFinishedEvent
+    .. properties ..
+    + currentNode
+    + targetListSelectorVisible
+    __
+    + startPlacing()
+    + stopPlacing()
+    + getOrCreateFiducialNode()
+    + createNewFiducialNode(name=None)
+    + resetTable()
+    + cleanupButtons()
+    + updateButtons()
+    + handleDeleteButtonClicked(idx)
+    + addTargetListObservers()
+    + removeTargetListObservers()
+    + hasTargetListAtLeastOneTarget(): boolean
+    __
+    # _processKwargs(**kwargs)
+    # _addDeleteButton()
+    .. slots ..
+    + onInteractionModeChanged(caller, event)
+    + onFiducialListSelected(node)
+    + onFiducialsUpdated(caller, event)
+    + onCellChanged(row, col)
+  }
   class ExtendedQMessageBox
-  class IncomingDataMessageBox
   class IncomingDataWindow
-  class RatingWindow
-  class BasicInformationWatchBox
-  class FileBasedInformationWatchBox
+  class RatingWindow {
+    .. events ..
+    + RatingWindowClosedEvent
+    .. properties ..
+    + maximumValue
+    __
+    + text
+    __
+    + isRatingEnabled(): boolean
+    + eventFilter(obj, event)
+    + onRatingButtonClicked(buttonId)
+    __
+    # _connectButtons()
+    # _disconnectButtons()
+    # _onHoverEvent(obj)
+    # _onLeaveEvent()
+  }
+
+  class BasicInformationWatchBox {
+    + DEFAULT_STYLE='background-color: rgb(230,230,230)'
+    + PREFERRED_DATE_FORMAT="%Y-%b-%d"
+    __
+    + reset()
+    + checkAttributeUniqueness(): boolean
+    + getAttribute(name): WatchBoxAttribute
+    __
+    + attributes
+  }
+
+  class FileBasedInformationWatchBox {
+    + FileBasedInformationWatchBox=": "
+    + DEFAULT_TAG_NAME_SEPARATOR="_"
+    .. properties ..
+    + sourceFile
+    __
+    + updateInformation()
+    + updateInformationFromWatchBoxAttribute(attribute)
+    __
+    # _getTagNameFromTagNames(tagNames)
+    # _getTagValueFromTagValues(values)
+
+
+  }
   class XMLBasedInformationWatchBox
-  class DICOMBasedInformationWatchBox
+
+  class DICOMBasedInformationWatchBox {
+    + DATE_TAGS_TO_FORMAT=[DICOMTAGS.STUDY_DATE, DICOMTAGS.PATIENT_BIRTH_DATE]
+    + updateInformationFromWatchBoxAttribute(attribute)
+  }
 
   BasicInformationWatchBox <|-- FileBasedInformationWatchBox
   FileBasedInformationWatchBox <|-- XMLBasedInformationWatchBox
   FileBasedInformationWatchBox <|-- DICOMBasedInformationWatchBox
-
-  ExtendedQMessageBox <|-- IncomingDataMessageBox
 }
+
+WatchBoxAttribute <.. BasicInformationWatchBox::attributes
 
 package "mixins" #c3ff00 {
   class ParameterNodeObservationMixin

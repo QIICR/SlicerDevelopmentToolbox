@@ -122,7 +122,7 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   def __init__(self, parent=None, **kwargs):
     qt.QWidget.__init__(self, parent)
     self.iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
-    self.processKwargs(**kwargs)
+    self._processKwargs(**kwargs)
     self.connectedButtons = []
     self.fiducialNodeObservers = []
     self.selectionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSelectionNodeSingleton")
@@ -132,7 +132,7 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self._currentNode = None
     self.setupConnections()
 
-  def processKwargs(self, **kwargs):
+  def _processKwargs(self, **kwargs):
     for key, value in kwargs.iteritems():
       if hasattr(self, key):
         setattr(self, key, value)
@@ -257,9 +257,9 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
       label = self.currentNode.GetNthFiducialLabel(i)
       cellLabel = qt.QTableWidgetItem(label)
       self.table.setItem(i, 0, cellLabel)
-      self.addDeleteButton(i, 1)
+      self._addDeleteButton(i, 1)
 
-  def addDeleteButton(self, row, col):
+  def _addDeleteButton(self, row, col):
     button = qt.QPushButton('X')
     self.table.setCellWidget(row, col, button)
     button.clicked.connect(lambda: self.handleDeleteButtonClicked(row))
@@ -324,7 +324,7 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
         element.currentPath = value
       else:
         element = self.createLineEdit(value)
-        element.minimumWidth = self.getMinimumTextWidth(element.text) + 10
+        element.minimumWidth = self._getMinimumTextWidth(element.text) + 10
 
       self.layout().addWidget(label, index, 0)
       self.layout().addWidget(element, index, 1, 1, qt.QSizePolicy.ExpandFlag)
@@ -339,7 +339,7 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     self.layout().addWidget(self.createHLayout([self.okButton, self.cancelButton]), len(settingNames), 1)
     self.okButton.clicked.connect(self.onOkButtonClicked)
 
-  def getMinimumTextWidth(self, text):
+  def _getMinimumTextWidth(self, text):
     font = qt.QFont("", 0)
     metrics = qt.QFontMetrics(font)
     return metrics.width(text)
@@ -471,6 +471,8 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
 
 class RatingWindow(qt.QWidget, ModuleWidgetMixin):
 
+  RatingWindowClosedEvent = vtk.vtkCommand.UserEvent + 304
+
   @property
   def maximumValue(self):
     return self._maximumValue
@@ -491,12 +493,12 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
     self.setLayout(qt.QGridLayout())
     self.setWindowFlags(qt.Qt.WindowStaysOnTopHint | qt.Qt.FramelessWindowHint)
     self.setupElements()
-    self.connectButtons()
+    self._connectButtons()
     self.showRatingValue = True
 
   def __del__(self):
     super(RatingWindow, self).__del__()
-    self.disconnectButtons()
+    self._disconnectButtons()
 
   def isRatingEnabled(self):
     return not self.disableWidgetCheckbox.checked
@@ -504,13 +506,6 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
   def setupIcons(self):
     self.filledStarIcon = self.createIcon("icon-star-filled.png", self.iconPath)
     self.unfilledStarIcon = self.createIcon("icon-star-unfilled.png", self.iconPath)
-
-  def show(self, disableWidget=None):
-    self.disabledWidget = disableWidget
-    if disableWidget:
-      disableWidget.enabled = False
-    qt.QWidget.show(self)
-    self.ratingScore = None
 
   def setupElements(self):
     self.layout().addWidget(qt.QLabel(self.text), 0, 0)
@@ -531,28 +526,35 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
     self.disableWidgetCheckbox.checked = False
     self.layout().addWidget(self.disableWidgetCheckbox, 2, 0)
 
-  def connectButtons(self):
+  def _connectButtons(self):
     self.ratingButtonGroup.connect('buttonClicked(int)', self.onRatingButtonClicked)
     for button in list(self.ratingButtonGroup.buttons()):
       button.installEventFilter(self)
 
-  def disconnectButtons(self):
+  def _disconnectButtons(self):
     self.ratingButtonGroup.disconnect('buttonClicked(int)', self.onRatingButtonClicked)
     for button in list(self.ratingButtonGroup.buttons()):
       button.removeEventFilter(self)
 
+  def show(self, disableWidget=None):
+    self.disabledWidget = disableWidget
+    if disableWidget:
+      disableWidget.enabled = False
+    qt.QWidget.show(self)
+    self.ratingScore = None
+
   def eventFilter(self, obj, event):
     if obj in list(self.ratingButtonGroup.buttons()) and event.type() == qt.QEvent.HoverEnter:
-      self.onHoverEvent(obj)
+      self._onHoverEvent(obj)
     elif obj in list(self.ratingButtonGroup.buttons()) and event.type() == qt.QEvent.HoverLeave:
-      self.onLeaveEvent()
+      self._onLeaveEvent()
     return qt.QWidget.eventFilter(self, obj, event)
 
-  def onLeaveEvent(self):
+  def _onLeaveEvent(self):
     for button in list(self.ratingButtonGroup.buttons()):
       button.icon = self.unfilledStarIcon
 
-  def onHoverEvent(self, obj):
+  def _onHoverEvent(self, obj):
     ratingValue = 0
     for button in list(self.ratingButtonGroup.buttons()):
       button.icon = self.filledStarIcon
@@ -567,7 +569,7 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
     if self.disabledWidget:
       self.disabledWidget.enabled = True
       self.disabledWidget = None
-    self.invokeEvent(SlicerDevelopmentToolboxEvents.RatingWindowClosedEvent, str(self.ratingScore))
+    self.invokeEvent(self.RatingWindowClosedEvent, str(self.ratingScore))
     self.hide()
 
 
