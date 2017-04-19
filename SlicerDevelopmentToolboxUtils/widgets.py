@@ -6,6 +6,7 @@ import slicer
 import vtk
 import os
 import sys
+import ctk
 
 from constants import DICOMTAGS
 from events import SlicerDevelopmentToolboxEvents
@@ -370,19 +371,6 @@ class ExtendedQMessageBox(qt.QMessageBox):
 
   def exec_(self, *args, **kwargs):
     return qt.QMessageBox.exec_(self, *args, **kwargs), self.checkbox.isChecked()
-
-
-class IncomingDataMessageBox(ExtendedQMessageBox):
-
-  def __init__(self, parent=None):
-    super(IncomingDataMessageBox, self).__init__(parent)
-    self.setWindowTitle("Incoming image data")
-    self.textLabel = qt.QLabel("New data has been received. What do you want do?")
-    self.layout().addWidget(self.textLabel, 0, 1)
-    self.setIcon(qt.QMessageBox.Question)
-    trackButton = self.addButton(qt.QPushButton('Track targets'), qt.QMessageBox.AcceptRole)
-    self.addButton(qt.QPushButton('Postpone'), qt.QMessageBox.NoRole)
-    self.setDefaultButton(trackButton)
 
 
 class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
