@@ -7,6 +7,7 @@ import vtk
 import os
 import sys
 import ctk
+import logging
 
 from constants import DICOMTAGS
 from events import SlicerDevelopmentToolboxEvents
@@ -298,46 +299,83 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
 
   def __init__(self, moduleName, parent=None, **kwargs):
     self.moduleName = moduleName
-    self.keyElementPairs = []
+    self.elements = []
     qt.QMessageBox.__init__(self, parent, **kwargs)
     self.setup()
     self.adjustSize()
 
   def setup(self):
     self.setLayout(qt.QGridLayout())
-    settingNames = self.getSettingNames()
-    for index, setting in enumerate(settingNames):
-      label = self.createLabel(setting)
-      value = self.getSetting(setting)
-      if value.lower() in ["true", "false"]:
-        element = qt.QCheckBox()
-        element.checked = value.lower() == "true"
-      elif value.isdigit():
-        element = qt.QSpinBox()
-        element.value = int(value)
-      elif os.path.exists(value):
-        element = ctk.ctkPathLineEdit()
-        if os.path.isdir(value):
-          element.filters = ctk.ctkPathLineEdit.Dirs
-        else:
-          element.filters = ctk.ctkPathLineEdit.Files
-        element.currentPath = value
-      else:
-        element = self.createLineEdit(value)
-        element.minimumWidth = self._getMinimumTextWidth(element.text) + 10
-
-      self.layout().addWidget(label, index, 0)
-      self.layout().addWidget(element, index, 1, 1, qt.QSizePolicy.ExpandFlag)
-      self.keyElementPairs.append((label.text, element))
-
     self.okButton = self.createButton("OK")
     self.cancelButton = self.createButton("Cancel")
 
     self.addButton(self.okButton, qt.QMessageBox.AcceptRole)
     self.addButton(self.cancelButton, qt.QMessageBox.NoRole)
 
-    self.layout().addWidget(self.createHLayout([self.okButton, self.cancelButton]), len(settingNames), 1)
+    self.layout().addWidget(self.createHLayout([self.okButton, self.cancelButton]), 1, 1, 1, 2)
     self.okButton.clicked.connect(self.onOkButtonClicked)
+
+  def createUIFromSettings(self):
+    if getattr(self, "settingGroupBox", None):
+      self.settingGroupBox.setParent(None)
+      del self.settingGroupBox
+    self.settingGroupBox = qt.QGroupBox()
+    self.settingGroupBox.setStyleSheet("QGroupBox{border:0;}")
+    self.settingGroupBox.setLayout(qt.QGridLayout())
+    self.elements = []
+    for index, setting in enumerate(self.getSettingNames()):
+      label = self.createLabel(setting)
+      value = self.getSetting(setting)
+
+      if isinstance(value, tuple) or isinstance(value, list):
+        element = qt.QListWidget()
+        element.setProperty("type", type(value))
+        map(element.addItem, value)
+      elif isinstance(value, qt.QSize) or isinstance(value, qt.QPoint):
+        if isinstance(value, qt.QSize):
+          element = SizeEdit(value.width(), value.height())
+        else:
+          element = PointEdit(value.x(), value.y())
+        element.setProperty("type", type(value))
+        element.addEventObserver(element.ModifiedEvent, lambda caller, event, e=element: self._onAttributeModified(e))
+      else:
+        value = str(value)
+        if value.lower() in ["true", "false"]:
+          element = qt.QCheckBox()
+          element.checked = value.lower() == "true"
+          element.toggled.connect(lambda enabled, e=element: self._onAttributeModified(e))
+        elif value.isdigit():
+          element = qt.QSpinBox()
+          element.value = int(value)
+          element.valueChanged.connect(lambda newVal, e=element: self._onAttributeModified(e))
+        elif os.path.exists(value):
+          element = ctk.ctkPathLineEdit()
+          if os.path.isdir(value):
+            element.filters = ctk.ctkPathLineEdit.Dirs
+          else:
+            element.filters = ctk.ctkPathLineEdit.Files
+          element.currentPath = value
+          element.currentPathChanged.connect(lambda path, e=element: self._onAttributeModified(e))
+        else:
+          element = self.createLineEdit(value)
+          element.minimumWidth = self._getMinimumTextWidth(element.text) + 10
+          element.textChanged.connect(lambda text, e=element: self._onAttributeModified(e))
+
+      if element:
+        element.setProperty("modified", False)
+        element.setProperty("attributeName", label.text)
+        self.settingGroupBox.layout().addWidget(label, index, 0)
+        self.settingGroupBox.layout().addWidget(element, index, 1, 1, qt.QSizePolicy.ExpandFlag)
+        self.elements.append(element)
+    self.layout().addWidget(self.settingGroupBox, 0, 1, 1, 2)
+
+  def show(self):
+    self.createUIFromSettings()
+    qt.QWidget.show(self)
+
+  def _onAttributeModified(self, element):
+    print element
+    element.setProperty("modified", True)
 
   def _getMinimumTextWidth(self, text):
     font = qt.QFont("", 0)
@@ -345,18 +383,105 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     return metrics.width(text)
 
   def onOkButtonClicked(self):
-    for key, element in self.keyElementPairs:
+    for element in self.elements:
+      if not element.property("modified"):
+        continue
       if isinstance(element, qt.QCheckBox):
-        value = "true" if element.checked else "false"
+        value = element.checked
       elif isinstance(element, qt.QSpinBox):
         value = str(element.value)
       elif isinstance(element, ctk.ctkPathLineEdit):
         value = element.currentPath
+      elif isinstance(element, qt.QListWidget):
+        if element.property("type") is tuple:
+          value = (element.item(i).text() for i in range(element.count))
+        else:
+          value = [element.item(i).text() for i in range(element.count)]
+      elif isinstance(element, SizeEdit):
+        value = qt.QSize(element.width, element.height)
+      elif isinstance(element, PointEdit):
+        value = qt.QPoint(element.x, element.y)
       else:
         value = element.text
-      if self.getSetting(key) != value:
-        self.setSetting(key, value)
+      attributeName = element.property("attributeName")
+      if not self.hasSetting(attributeName):
+        raise ValueError("QSetting attribute {}/{} does not exist".format(self.moduleName, attributeName))
+      if self.getSetting(attributeName) != value:
+        logging.debug("Setting value %s for attribute %s" %(value, attributeName))
+        self.setSetting(attributeName, value)
     self.close()
+
+
+class DimensionEditBase(qt.QWidget, ModuleWidgetMixin):
+
+  ModifiedEvent = vtk.vtkCommand.UserEvent + 2324
+
+  def __init__(self, first, second, parent=None):
+    super(DimensionEditBase, self).__init__(parent)
+    self.setup(first, second)
+    self.setupConnections()
+
+  def setup(self, first, second):
+    self.setLayout(qt.QHBoxLayout())
+    self.firstDimension = qt.QSpinBox()
+    self.firstDimension.maximum = 9999
+    self.firstDimension.setValue(first)
+    self.secondDimension = qt.QSpinBox()
+    self.secondDimension.maximum = 9999
+    self.secondDimension.setValue(second)
+    self.layout().addWidget(self.firstDimension)
+    self.layout().addWidget(self.secondDimension)
+
+  def setupConnections(self):
+    self.firstDimension.valueChanged.connect(self.onValueChanged)
+    self.secondDimension.valueChanged.connect(self.onValueChanged)
+
+  def onValueChanged(self, value):
+    self.invokeEvent(self.ModifiedEvent)
+
+
+class SizeEdit(DimensionEditBase):
+
+  @property
+  def width(self):
+    return self.firstDimension.value
+
+  @width.setter
+  def width(self, width):
+    self.firstDimension.value = width
+
+  @property
+  def height(self):
+    return self.secondDimension.value
+
+  @height.setter
+  def height(self, height):
+    self.secondDimension.value = height
+
+  def __init__(self, width, height, parent=None):
+    super(SizeEdit, self).__init__(width, height, parent)
+
+
+class PointEdit(DimensionEditBase):
+
+  @property
+  def x(self):
+    return self.firstDimension.value
+
+  @x.setter
+  def x(self, x):
+    self.firstDimension.value = x
+
+  @property
+  def y(self):
+    return self.secondDimension.value
+
+  @y.setter
+  def y(self, y):
+    self.secondDimension.value = y
+
+  def __init__(self, x, y, parent=None):
+    super(PointEdit, self).__init__(x, y, parent)
 
 
 class ExtendedQMessageBox(qt.QMessageBox):
