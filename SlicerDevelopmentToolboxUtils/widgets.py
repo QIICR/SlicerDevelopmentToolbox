@@ -80,6 +80,28 @@ class CustomStatusProgressbar(qt.QWidget):
 
 class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
+  """
+  Example code:
+  
+  import ast
+  import vtk
+  
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def onTargetSelected(caller, event, callData):
+    info = ast.literal_eval(callData)
+    node = slicer.mrmlScene.GetNodeByID(info["nodeID"])
+    index = info["index"]
+    print node
+    print "%s clicked" % node.GetNthFiducialLabel(index)
+    
+    
+  from SlicerDevelopmentToolboxUtils.widgets import *
+  t = TargetCreationWidget()
+  t.targetListSelectorVisible = True
+  t.addEventObserver(t.TargetSelectedEvent, onTargetSelected)
+  t.show()
+  """
+
   HEADERS = ["Name","Delete"]
   MODIFIED_EVENT = "ModifiedEvent"
   FIDUCIAL_LIST_OBSERVED_EVENTS = [MODIFIED_EVENT]
@@ -90,18 +112,19 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
   TargetingStartedEvent = vtk.vtkCommand.UserEvent + 335
   TargetingFinishedEvent = vtk.vtkCommand.UserEvent + 336
+  TargetSelectedEvent = vtk.vtkCommand.UserEvent + 337
 
   ICON_SIZE = qt.QSize(24, 24)
 
   @property
   def currentNode(self):
-    return self.fiducialListSelector.currentNode()
+    return self.targetListSelector.currentNode()
 
   @currentNode.setter
   def currentNode(self, node):
     if self._currentNode:
       self.removeTargetListObservers()
-    self.fiducialListSelector.setCurrentNode(node)
+    self.targetListSelector.setCurrentNode(node)
     self._currentNode = node
     if node:
       self.addTargetListObservers()
@@ -154,10 +177,10 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.setupButtons()
 
   def setupTargetFiducialListSelector(self):
-    self.fiducialListSelector = self.createComboBox(nodeTypes=["vtkMRMLMarkupsFiducialNode", ""], addEnabled=True,
-                                                    removeEnabled=True, noneEnabled=True, showChildNodeTypes=False,
-                                                    selectNodeUponCreation=True, toolTip="Select target list")
-    self.targetListSelectorArea = self.createHLayout([qt.QLabel("Target List: "), self.fiducialListSelector])
+    self.targetListSelector = self.createComboBox(nodeTypes=["vtkMRMLMarkupsFiducialNode", ""], addEnabled=True,
+                                                  removeEnabled=True, noneEnabled=True, showChildNodeTypes=False,
+                                                  selectNodeUponCreation=True, toolTip="Select target list")
+    self.targetListSelectorArea = self.createHLayout([qt.QLabel("Target List: "), self.targetListSelector])
     self.targetListSelectorArea.hide()
     self.layout().addWidget(self.targetListSelectorArea)
 
@@ -184,8 +207,13 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     # TODO: think about the following since it will always listen!
     self.interactionNodeObserver = self.interactionNode.AddObserver(self.interactionNode.InteractionModeChangedEvent,
                                                                     self.onInteractionModeChanged)
-    self.fiducialListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
+    self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
     self.table.connect("cellChanged (int,int)", self.onCellChanged)
+    self.table.connect('clicked(QModelIndex)', self.onTargetSelectionChanged)
+
+  def onTargetSelectionChanged(self, modelIndex):
+    self.invokeEvent(self.TargetSelectedEvent, str({"nodeID": self.currentNode.GetID(),
+                                                    "index": modelIndex.row()}))
 
   def onInteractionModeChanged(self, caller, event):
     if not self.currentNode:
@@ -282,9 +310,9 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
       self.currentNode.SetNthFiducialLabel(row, self.table.item(row, col).text())
 
   def getOrCreateFiducialNode(self):
-    node = self.fiducialListSelector.currentNode()
+    node = self.targetListSelector.currentNode()
     if not node:
-      node = self.fiducialListSelector.addNode()
+      node = self.targetListSelector.addNode()
     return node
 
   def hasTargetListAtLeastOneTarget(self):
@@ -374,7 +402,6 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     qt.QWidget.show(self)
 
   def _onAttributeModified(self, element):
-    print element
     element.setProperty("modified", True)
 
   def _getMinimumTextWidth(self, text):
