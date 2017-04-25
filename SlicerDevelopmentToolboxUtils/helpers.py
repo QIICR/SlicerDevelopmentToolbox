@@ -660,7 +660,7 @@ class WatchBoxAttribute(object):
   def value(self, value):
     if not value:
       value = ""
-    if type(value) is not str:
+    if type(value) not in [str, unicode]:
       value = str(value)
     self.originalValue = value
     self.updateVisibleValues(self.originalValue if not self.masked else self.maskedValue(self.originalValue))
