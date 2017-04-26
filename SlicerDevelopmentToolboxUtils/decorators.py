@@ -263,9 +263,9 @@ def singleton(cls):
   # source: http://stackoverflow.com/questions/12305142/issue-with-singleton-python-call-two-times-init
   instances = {}
 
-  def getinstance():
+  def getinstance(*args, **kwargs):
     if cls not in instances:
-      instances[cls] = cls()
+      instances[cls] = cls(*args, **kwargs)
     return instances[cls]
 
   return getinstance
