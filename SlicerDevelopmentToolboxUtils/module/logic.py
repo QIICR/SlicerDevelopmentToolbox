@@ -1,8 +1,14 @@
-from .base import SessionBasedModuleBase
+from .base import SessionBasedModuleBase, ModuleBase
 from ..mixins import ModuleLogicMixin
 
 
-class LogicBase(SessionBasedModuleBase, ModuleLogicMixin):
+class LogicBase(ModuleBase, ModuleLogicMixin):
+
+  def __init__(self):
+    ModuleBase.__init__(self)
+
+
+class SessionBasedLogicBase(SessionBasedModuleBase, ModuleLogicMixin):
 
   SessionClass = None
 

@@ -165,5 +165,5 @@ class WidgetBase(qt.QWidget, SessionBasedModuleBase, ModuleWidgetMixin):
       plugin.active = activated
 
   def addPlugin(self, plugin):
-    assert hasattr(plugin, "active"), "Plugin needs to be a subclass of %s" % SliceTrackerPlugin.__class__.__name__
+    assert hasattr(plugin, "active"), "Plugin needs to be a subclass of %s" % WidgetBase.__class__.__name__
     self._plugins.append(plugin)
