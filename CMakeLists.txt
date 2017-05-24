@@ -31,6 +31,12 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Utils/events.py
   ${MODULE_NAME}Utils/widgets.py
   ${MODULE_NAME}Utils/buttons.py
+  ${MODULE_NAME}Utils/module/__init__.py
+  ${MODULE_NAME}Utils/module/base.py
+  ${MODULE_NAME}Utils/module/session.py
+  ${MODULE_NAME}Utils/module/logic.py
+  ${MODULE_NAME}Utils/module/plugin.py
+  ${MODULE_NAME}Utils/module/step.py
   )
 
 set(MODULE_PYTHON_RESOURCES

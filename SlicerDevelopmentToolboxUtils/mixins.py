@@ -300,6 +300,32 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     pixmap = qt.QPixmap(path)
     return qt.QIcon(pixmap)
 
+  @staticmethod
+  def createAndGetRawColoredPixelMap(color, width=24, height=24, drawBorder=True):
+    pixmap = qt.QPixmap(width, height)
+    pixmap.fill(qt.QColor(color))
+    if drawBorder:
+      ModuleWidgetMixin.drawBorder(pixmap)
+    return ModuleWidgetMixin.pixelmapAsRaw(pixmap)
+
+  @staticmethod
+  def drawBorder(pixmap):
+    painter = qt.QPainter(pixmap)
+    rect = pixmap.rect()
+    tl = rect.topLeft()
+    tr = rect.topRight()
+    bl = rect.bottomLeft()
+    br = rect.bottomRight()
+    for start, end in [[tl, tr],[tr, br],[br, bl],[bl, tl]]:
+      painter.drawLine(start, end)
+
+  @staticmethod
+  def pixelmapAsRaw(pixmap):
+    byteArray = qt.QByteArray()
+    buffer = qt.QBuffer(byteArray)
+    pixmap.save(buffer, "PNG")
+    return "data:image/png;base64," + byteArray.toBase64().data()
+
   def createSliderWidget(self, minimum, maximum):
     slider = slicer.qMRMLSliderWidget()
     slider.minimum = minimum

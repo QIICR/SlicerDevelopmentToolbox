@@ -204,7 +204,6 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   def setupConnections(self):
     self.startTargetingButton.clicked.connect(self.startPlacing)
     self.stopTargetingButton.clicked.connect(self.stopPlacing)
-    # TODO: think about the following since it will always listen!
     self.interactionNodeObserver = self.interactionNode.AddObserver(self.interactionNode.InteractionModeChangedEvent,
                                                                     self.onInteractionModeChanged)
     self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
@@ -795,6 +794,7 @@ class FileBasedInformationWatchBox(BasicInformationWatchBox):
 
   @property
   def sourceFile(self):
+    self._sourceFile = getattr(self, "_sourceFile", None)
     return self._sourceFile
 
   @sourceFile.setter
