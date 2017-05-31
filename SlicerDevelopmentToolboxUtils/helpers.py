@@ -317,6 +317,7 @@ class SmartDICOMReceiver(ModuleLogicMixin):
 
   def forceStatusChangeEventUpdate(self):
     self.currentStatus = "Force update"
+    self.refreshCurrentStatus()
 
   def start(self, runStoreSCP=True):
     self.stop()
@@ -325,8 +326,14 @@ class SmartDICOMReceiver(ModuleLogicMixin):
       self.startStoreSCP()
     self.invokeEvent(self.DICOMReceiverStartedEvent)
     self._running = True
-    self._updateStatus("{}: Waiting for incoming DICOM data".format(self.NAME) if self.storeSCPProcess else
-                      "{}: Watching incoming data directory only (no storescp running)".format(self.NAME))
+    self.refreshCurrentStatus()
+
+  def refreshCurrentStatus(self):
+    statusText = ""
+    if self._running:
+      statusText = "{}: Waiting for incoming DICOM data".format(self.NAME) if self.storeSCPProcess else \
+                   "{}: Watching incoming data directory only (no storescp running)".format(self.NAME)
+    self._updateStatus(statusText)
 
   def stop(self):
     if self._running:

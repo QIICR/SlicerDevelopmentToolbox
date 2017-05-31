@@ -29,6 +29,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Utils/decorators.py
   ${MODULE_NAME}Utils/metaclasses.py
   ${MODULE_NAME}Utils/events.py
+  ${MODULE_NAME}Utils/exceptions.py
   ${MODULE_NAME}Utils/widgets.py
   ${MODULE_NAME}Utils/buttons.py
   ${MODULE_NAME}Utils/module/__init__.py
