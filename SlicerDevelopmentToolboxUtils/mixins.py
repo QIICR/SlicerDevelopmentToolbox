@@ -174,21 +174,19 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     if not sliceNode in self._sliceNodes:
       self._sliceNodes.append(sliceNode)
 
-  def getAllVisibleWidgets(self):
-    visibleWidgets = []
-    sliceLogics = self.layoutManager.mrmlSliceLogics()
-    for n in range(sliceLogics.GetNumberOfItems()):
+  @staticmethod
+  def getAllVisibleWidgets():
+    lm = slicer.app.layoutManager()
+    sliceLogics = lm.mrmlSliceLogics()
+    for n in xrange(sliceLogics.GetNumberOfItems()):
       sliceLogic = sliceLogics.GetItemAsObject(n)
-      widget = self.layoutManager.sliceWidget(sliceLogic.GetName())
+      widget = lm.sliceWidget(sliceLogic.GetName())
       if widget.sliceView().visible:
-        visibleWidgets.append(widget)
-    return visibleWidgets
+         yield widget
 
   @staticmethod
   def hideAllLabels():
-    lm = slicer.app.layoutManager()
-    for n in range(lm.mrmlSliceLogics().GetNumberOfItems()):
-      widget = lm.sliceWidget(lm.mrmlSliceLogics().GetItemAsObject(n).GetName())
+    for widget in ModuleWidgetMixin.getAllVisibleWidgets():
       compositeNode = widget.mrmlSliceCompositeNode()
       compositeNode.SetLabelOpacity(0)
 
@@ -388,7 +386,7 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     combobox.setMRMLScene(slicer.mrmlScene)
     return combobox
 
-  def showMainAppToolbars(show=True):
+  def showMainAppToolbars(self, show=True):
     w = slicer.util.mainWindow()
     for c in w.children():
       if str(type(c)).find('ToolBar')>0:

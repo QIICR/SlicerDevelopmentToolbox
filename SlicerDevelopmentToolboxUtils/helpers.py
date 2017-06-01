@@ -11,7 +11,7 @@ import slicer
 import vtk
 from DICOMLib import DICOMProcess
 from events import SlicerDevelopmentToolboxEvents
-from mixins import ModuleLogicMixin, ParameterNodeObservationMixin
+from mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
 
 
 class SampleDataDownloader(FancyURLopener, ParameterNodeObservationMixin):
@@ -351,6 +351,29 @@ class SmartDICOMReceiver(ModuleLogicMixin):
     if self.storeSCPProcess:
       self.storeSCPProcess.stop()
       self.storeSCPProcess = None
+
+
+class SliceAnnotationHandlerBase(ModuleWidgetMixin):
+
+  def __init__(self):
+    self.sliceAnnotations = []
+    self.setupSliceWidgets()
+
+  def cleanup(self):
+    self.removeSliceAnnotations()
+
+  def setupSliceWidgets(self):
+    self.createSliceWidgetClassMembers("Red")
+    self.createSliceWidgetClassMembers("Yellow")
+    self.createSliceWidgetClassMembers("Green")
+
+  def addSliceAnnotations(self):
+    raise NotImplementedError
+
+  def removeSliceAnnotations(self):
+    while len(self.sliceAnnotations):
+      annotation = self.sliceAnnotations.pop()
+      annotation.remove()
 
 
 class SliceAnnotation(object):
