@@ -47,6 +47,21 @@ class CustomStatusProgressbar(qt.QWidget):
     self.progress.maximum = value
     self.refreshProgressVisibility()
 
+  @property
+  def busy(self):
+    return self.progress.minimum == 0 and self.progress.maximum == 0
+
+  @busy.setter
+  def busy(self, busy):
+    if busy:
+      self._oldMinimum = self.progress.minimum
+      self._oldMaximum = self.progress.maximum
+      self.progress.maximum = self.progress.minimum = 0
+    else:
+      self.progress.minimum = getattr(self, "_oldMinimum", 0)
+      self.progress.maximum = getattr(self, "_oldMaximum", 100)
+    self.refreshProgressVisibility()
+
   def __init__(self, parent=None, **kwargs):
     qt.QWidget.__init__(self, parent, **kwargs)
     self.setup()
@@ -61,7 +76,8 @@ class CustomStatusProgressbar(qt.QWidget):
     rowLayout.addWidget(self.progress, 1)
     self.setStyleSheet(self.STYLE)
     self.refreshProgressVisibility()
-    slicer.util.mainWindow().statusBar().addWidget(self, 1)
+    if not self.parent():
+      slicer.util.mainWindow().statusBar().addWidget(self, 1)
 
   def updateStatus(self, text, value=None):
     self.text = text

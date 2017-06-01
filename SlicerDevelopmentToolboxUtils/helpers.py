@@ -11,7 +11,7 @@ import slicer
 import vtk
 from DICOMLib import DICOMProcess
 from events import SlicerDevelopmentToolboxEvents
-from mixins import ModuleLogicMixin, ParameterNodeObservationMixin
+from mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
 
 
 class SampleDataDownloader(FancyURLopener, ParameterNodeObservationMixin):
@@ -317,6 +317,7 @@ class SmartDICOMReceiver(ModuleLogicMixin):
 
   def forceStatusChangeEventUpdate(self):
     self.currentStatus = "Force update"
+    self.refreshCurrentStatus()
 
   def start(self, runStoreSCP=True):
     self.stop()
@@ -325,8 +326,14 @@ class SmartDICOMReceiver(ModuleLogicMixin):
       self.startStoreSCP()
     self.invokeEvent(self.DICOMReceiverStartedEvent)
     self._running = True
-    self._updateStatus("{}: Waiting for incoming DICOM data".format(self.NAME) if self.storeSCPProcess else
-                      "{}: Watching incoming data directory only (no storescp running)".format(self.NAME))
+    self.refreshCurrentStatus()
+
+  def refreshCurrentStatus(self):
+    statusText = ""
+    if self._running:
+      statusText = "{}: Waiting for incoming DICOM data".format(self.NAME) if self.storeSCPProcess else \
+                   "{}: Watching incoming data directory only (no storescp running)".format(self.NAME)
+    self._updateStatus(statusText)
 
   def stop(self):
     if self._running:
@@ -344,6 +351,29 @@ class SmartDICOMReceiver(ModuleLogicMixin):
     if self.storeSCPProcess:
       self.storeSCPProcess.stop()
       self.storeSCPProcess = None
+
+
+class SliceAnnotationHandlerBase(ModuleWidgetMixin):
+
+  def __init__(self):
+    self.sliceAnnotations = []
+    self.setupSliceWidgets()
+
+  def cleanup(self):
+    self.removeSliceAnnotations()
+
+  def setupSliceWidgets(self):
+    self.createSliceWidgetClassMembers("Red")
+    self.createSliceWidgetClassMembers("Yellow")
+    self.createSliceWidgetClassMembers("Green")
+
+  def addSliceAnnotations(self):
+    raise NotImplementedError
+
+  def removeSliceAnnotations(self):
+    while len(self.sliceAnnotations):
+      annotation = self.sliceAnnotations.pop()
+      annotation.remove()
 
 
 class SliceAnnotation(object):
