@@ -95,30 +95,33 @@ class CustomStatusProgressbar(qt.QWidget):
 
 
 class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
+  """ TargetCreationWidget is an exclusive QWidget for creating targets/fiducials
 
-  """
-  Example code:
-  
-  import ast
-  import vtk
-  
-  @vtk.calldata_type(vtk.VTK_STRING)
-  def onTargetSelected(caller, event, callData):
-    info = ast.literal_eval(callData)
-    node = slicer.mrmlScene.GetNodeByID(info["nodeID"])
-    index = info["index"]
-    print node
-    print "%s clicked" % node.GetNthFiducialLabel(index)
-    
-    
-  from SlicerDevelopmentToolboxUtils.widgets import *
-  t = TargetCreationWidget()
-  t.targetListSelectorVisible = True
-  t.addEventObserver(t.TargetSelectedEvent, onTargetSelected)
-  t.show()
+  Args:
+    parent (qt.QWidget, optional): parent of the widget
+
+  .. doctest::
+
+    import ast
+    import vtk
+
+    @vtk.calldata_type(vtk.VTK_STRING)
+    def onTargetSelected(caller, event, callData):
+      info = ast.literal_eval(callData)
+      node = slicer.mrmlScene.GetNodeByID(info["nodeID"])
+      index = info["index"]
+      print node
+      print "%s clicked" % node.GetNthFiducialLabel(index)
+
+
+    from SlicerDevelopmentToolboxUtils.widgets import *
+    t = TargetCreationWidget()
+    t.targetListSelectorVisible = True
+    t.addEventObserver(t.TargetSelectedEvent, onTargetSelected)
+    t.show()
   """
 
-  HEADERS = ["Name","Delete"]
+  _HEADERS = ["Name", "Delete"]
   MODIFIED_EVENT = "ModifiedEvent"
   FIDUCIAL_LIST_OBSERVED_EVENTS = [MODIFIED_EVENT]
 
@@ -261,7 +264,7 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.cleanupButtons()
     self.table.setRowCount(0)
     self.table.clear()
-    self.table.setHorizontalHeaderLabels(self.HEADERS)
+    self.table.setHorizontalHeaderLabels(self._HEADERS)
 
   def cleanupButtons(self):
     for button in self.connectedButtons:
@@ -741,28 +744,48 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
 
 
 class BasicInformationWatchBox(qt.QGroupBox):
+  """ BasicInformationWatchBox can be used for displaying key:value pairs in a qt.QGroupBox.
 
-  DEFAULT_STYLE = 'background-color: rgb(230,230,230)'
-  PREFERRED_DATE_FORMAT = "%Y-%b-%d"
+  Args:
+    attributes (list): list of WatchBoxAttributes
+    title (str,optional): text to be displayed in the upper left corner of the BasicInformationWatchBox
+    parent (qt.QWidget, optional): parent of the button
+    columns (int, optional): number of columns in which key/value pairs will be displayed
+  """
+
+  _DEFAULT_STYLE = 'background-color: rgb(230,230,230)'
+  _dateFormat = "%Y-%b-%d"
+
+  @staticmethod
+  def _formatPatientName(name):
+    if name != "":
+      splitted = name.split('^')
+      try:
+        name = splitted[1] + ", " + splitted[0]
+      except IndexError:
+        name = splitted[0]
+    return name
 
   def __init__(self, attributes, title="", parent=None, columns=1):
     super(BasicInformationWatchBox, self).__init__(title, parent)
     self.attributes = attributes
     self.columns = columns
-    if not self.checkAttributeUniqueness():
+    if not self._checkAttributeUniqueness():
       raise ValueError("Attribute names are not unique.")
-    self.setup()
-
-  def checkAttributeUniqueness(self):
-    onlyNames = [attribute.name for attribute in self.attributes]
-    return len(self.attributes) == len(set(onlyNames))
+    self._setup()
 
   def reset(self):
+    """ Sets all values (not keys) to ''
+    """
     for attribute in self.attributes:
       attribute.value = ""
 
-  def setup(self):
-    self.setStyleSheet(self.DEFAULT_STYLE)
+  def _checkAttributeUniqueness(self):
+    onlyNames = [attribute.name for attribute in self.attributes]
+    return len(self.attributes) == len(set(onlyNames))
+
+  def _setup(self):
+    self.setStyleSheet(self._DEFAULT_STYLE)
     layout = qt.QGridLayout()
     self.setLayout(layout)
 
@@ -772,11 +795,18 @@ class BasicInformationWatchBox(qt.QGroupBox):
       layout.addWidget(attribute.valueLabel, index/self.columns, column*2+1, 1, qt.Qt.AlignLeft)
       column = column+1 if column<self.columns-1 else 0
 
-  def getAttribute(self, name):
-    for attribute in self.attributes:
-      if attribute.name == name:
-        return attribute
-    return None
+  def _formatDate(self, dateToFormat):
+    if dateToFormat and dateToFormat != "":
+      formatted = datetime.date(int(dateToFormat[0:4]), int(dateToFormat[4:6]), int(dateToFormat[6:8]))
+      return formatted.strftime(self._dateFormat)
+    return "No Date found"
+
+  def setPreferredDateFormat(self, dateFormat):
+    """ Setting the preferred format dates should be displayed
+
+    See Also:  https://docs.python.org/2/library/datetime.html#datetime.datetime.strftime
+    """
+    self._dateFormat = dateFormat
 
   def setInformation(self, attributeName, value, toolTip=None):
     attribute = self.getAttribute(attributeName)
@@ -784,23 +814,24 @@ class BasicInformationWatchBox(qt.QGroupBox):
     attribute.valueLabel.toolTip = toolTip
 
   def getInformation(self, attributeName):
+    """ Retrieve information by delivering the attribute name.
+
+      Returns:
+        value if WatchBoxAttribute was set to masked else the original value
+    """
     attribute = self.getAttribute(attributeName)
     return attribute.value if not attribute.masked else attribute.originalValue
 
-  def formatDate(self, dateToFormat):
-    if dateToFormat and dateToFormat != "":
-      formatted = datetime.date(int(dateToFormat[0:4]), int(dateToFormat[4:6]), int(dateToFormat[6:8]))
-      return formatted.strftime(self.PREFERRED_DATE_FORMAT)
-    return "No Date found"
+  def getAttribute(self, name):
+    """ Retrieve attribute by attribute name.
 
-  def formatPatientName(self, name):
-    if name != "":
-      splitted = name.split('^')
-      try:
-        name = splitted[1] + ", " + splitted[0]
-      except IndexError:
-        name = splitted[0]
-    return name
+      Returns:
+        None if attribute name was not found else WatchBoxAttribute
+    """
+    for attribute in self.attributes:
+      if attribute.name == name:
+        return attribute
+    return None
 
 
 class FileBasedInformationWatchBox(BasicInformationWatchBox):
@@ -869,9 +900,9 @@ class XMLBasedInformationWatchBox(FileBasedInformationWatchBox):
       for tag in attribute.tags:
         currentValue = ModuleLogicMixin.findElement(self.dom, tag)
         if tag in self.DATE_TAGS_TO_FORMAT:
-          currentValue = self.formatDate(currentValue)
+          currentValue = self._formatDate(currentValue)
         elif tag == "PatientName":
-          currentValue = self.formatPatientName(currentValue)
+          currentValue = self._formatPatientName(currentValue)
         values.append(currentValue)
       return self._getTagValueFromTagValues(values)
     return ""
@@ -890,9 +921,9 @@ class DICOMBasedInformationWatchBox(FileBasedInformationWatchBox):
       for tag in attribute.tags:
         currentValue = ModuleLogicMixin.getDICOMValue(self.sourceFile, tag, "")
         if tag in self.DATE_TAGS_TO_FORMAT:
-          currentValue = self.formatDate(currentValue)
+          currentValue = self._formatDate(currentValue)
         elif tag == DICOMTAGS.PATIENT_NAME:
-          currentValue = self.formatPatientName(currentValue)
+          currentValue = self._formatPatientName(currentValue)
         values.append(currentValue)
       return self._getTagValueFromTagValues(values)
     return ""
