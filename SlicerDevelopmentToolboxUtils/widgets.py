@@ -122,8 +122,6 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   """
 
   _HEADERS = ["Name", "Delete"]
-  MODIFIED_EVENT = "ModifiedEvent"
-  FIDUCIAL_LIST_OBSERVED_EVENTS = [MODIFIED_EVENT]
 
   DEFAULT_FIDUCIAL_LIST_NAME = None
   DEFAULT_CREATE_FIDUCIALS_TEXT = "Place Target(s)"
@@ -133,29 +131,33 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   TargetingFinishedEvent = vtk.vtkCommand.UserEvent + 336
   TargetSelectedEvent = vtk.vtkCommand.UserEvent + 337
 
-  ICON_SIZE = qt.QSize(24, 24)
-
   @property
   def currentNode(self):
+    """ Property for getting/setting current vtkMRMLMarkupsFiducialNode.
+
+    currentNode represents the vtkMRMLMarkupsFiducialNode which is used for displaying/creating fiducials/targets.
+    """
     return self.targetListSelector.currentNode()
 
   @currentNode.setter
   def currentNode(self, node):
     if self._currentNode:
-      self.removeTargetListObservers()
+      self.stopPlacing()
+      self._removeTargetListObservers()
     self.targetListSelector.setCurrentNode(node)
     self._currentNode = node
     if node:
-      self.addTargetListObservers()
-      self.selectionNode.SetReferenceActivePlaceNodeID(node.GetID())
+      self._addTargetListObservers()
+      self._selectionNode.SetReferenceActivePlaceNodeID(node.GetID())
     else:
-      self.selectionNode.SetReferenceActivePlaceNodeID(None)
+      self._selectionNode.SetReferenceActivePlaceNodeID(None)
 
-    self.updateButtons()
-    self.updateTable()
+    self._updateButtons()
+    self._updateTable()
 
   @property
   def targetListSelectorVisible(self):
+    """ Property for changing visibility of target list selector """
     return self.targetListSelectorArea.visible
 
   @targetListSelectorVisible.setter
@@ -164,16 +166,16 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
   def __init__(self, parent=None, **kwargs):
     qt.QWidget.__init__(self, parent)
-    self.iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
+    self._iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
     self._processKwargs(**kwargs)
-    self.connectedButtons = []
-    self.fiducialNodeObservers = []
-    self.selectionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSelectionNodeSingleton")
-    self.interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-    self.setupIcons()
-    self.setup()
+    self._connectedButtons = []
+    self._modifiedEventObserverTag = None
+    self._selectionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSelectionNodeSingleton")
+    self._interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+    self._setupIcons()
+    self._setup()
     self._currentNode = None
-    self.setupConnections()
+    self._setupConnections()
 
   def _processKwargs(self, **kwargs):
     for key, value in kwargs.iteritems():
@@ -181,21 +183,53 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
         setattr(self, key, value)
 
   def reset(self):
+    """ reset exits the fiducial/target placement mode and sets the currently observed vtkMRMLMarkupsFiducialNode to None
+    """
     self.stopPlacing()
     self.currentNode = None
 
-  def setupIcons(self):
-    self.setTargetsIcon = self.createIcon("icon-addFiducial.png", self.iconPath)
-    self.modifyTargetsIcon = self.createIcon("icon-modifyFiducial.png", self.iconPath)
-    self.finishIcon = self.createIcon("icon-apply.png", self.iconPath)
+  def startPlacing(self):
+    """ Enters the fiducial/target placement mode. """
+    if not self.currentNode:
+      self._createNewFiducialNode(name=self.DEFAULT_FIDUCIAL_LIST_NAME)
+    self._selectionNode.SetReferenceActivePlaceNodeID(self.currentNode.GetID())
+    self._interactionNode.SetPlaceModePersistence(1)
+    self._interactionNode.SetCurrentInteractionMode(self._interactionNode.Place)
 
-  def setup(self):
+  def stopPlacing(self):
+    """ Exits the fiducial/target placement mode.
+    """
+    self._interactionNode.SetCurrentInteractionMode(self._interactionNode.ViewTransform)
+
+  def getOrCreateFiducialNode(self):
+    """ Convenience method for getting (or creating if it doesn't exist) current vtkMRMLMarkupsFiducialNode"""
+    if not self.currentNode:
+      self.currentNode = self.targetListSelector.addNode()
+    return self.currentNode
+
+  def hasTargetListAtLeastOneTarget(self):
+    """ Returns if currently observed vtkMRMLMarkupsFiducialNode has at least one fiducial
+
+      Returns:
+        bool: True if vtkMRMLMarkupsFiducialNode is not None and number of fiducials in vtkMRMLMarkupsFiducialNode is
+        unequal zero, False otherwise
+
+    """
+    return self.currentNode is not None and self.currentNode.GetNumberOfFiducials() > 0
+
+  def _setupIcons(self):
+    self._iconSize = qt.QSize(24, 24)
+    self.addTargetsIcon = self.createIcon("icon-addFiducial.png", self._iconPath)
+    self.modifyTargetsIcon = self.createIcon("icon-modifyFiducial.png", self._iconPath)
+    self.finishTargetingIcon = self.createIcon("icon-apply.png", self._iconPath)
+
+  def _setup(self):
     self.setLayout(qt.QGridLayout())
-    self.setupTargetFiducialListSelector()
-    self.setupTargetTable()
-    self.setupButtons()
+    self._setupTargetFiducialListSelector()
+    self._setupTargetTable()
+    self._setupButtons()
 
-  def setupTargetFiducialListSelector(self):
+  def _setupTargetFiducialListSelector(self):
     self.targetListSelector = self.createComboBox(nodeTypes=["vtkMRMLMarkupsFiducialNode", ""], addEnabled=True,
                                                   removeEnabled=True, noneEnabled=True, showChildNodeTypes=False,
                                                   selectNodeUponCreation=True, toolTip="Select target list")
@@ -203,98 +237,80 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.targetListSelectorArea.hide()
     self.layout().addWidget(self.targetListSelectorArea)
 
-  def setupTargetTable(self):
+  def _setupTargetTable(self):
     self.table = qt.QTableWidget(0, 2)
     self.table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
     self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
     self.table.setMaximumHeight(200)
     self.table.horizontalHeader().setStretchLastSection(True)
-    self.resetTable()
+    self._resetTable()
     self.layout().addWidget(self.table)
 
-  def setupButtons(self):
-    self.startTargetingButton = self.createButton("", enabled=True, icon=self.setTargetsIcon, iconSize=self.ICON_SIZE,
+  def _setupButtons(self):
+    self.startTargetingButton = self.createButton("", enabled=True, icon=self.addTargetsIcon, iconSize=self._iconSize,
                                                   toolTip="Start placing targets")
-    self.stopTargetingButton = self.createButton("", enabled=False, icon=self.finishIcon, iconSize=self.ICON_SIZE,
+    self.stopTargetingButton = self.createButton("", enabled=False, icon=self.finishTargetingIcon, iconSize=self._iconSize,
                                                  toolTip="Finish placing targets")
     self.buttons = self.createHLayout([self.startTargetingButton, self.stopTargetingButton])
     self.layout().addWidget(self.buttons)
 
-  def setupConnections(self):
+  def _setupConnections(self):
     self.startTargetingButton.clicked.connect(self.startPlacing)
     self.stopTargetingButton.clicked.connect(self.stopPlacing)
-    self.interactionNodeObserver = self.interactionNode.AddObserver(self.interactionNode.InteractionModeChangedEvent,
-                                                                    self.onInteractionModeChanged)
-    self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
-    self.table.connect("cellChanged (int,int)", self.onCellChanged)
-    self.table.connect('clicked(QModelIndex)', self.onTargetSelectionChanged)
+    self.interactionNodeObserver = self._interactionNode.AddObserver(self._interactionNode.InteractionModeChangedEvent,
+                                                                     self._onInteractionModeChanged)
+    self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self._onFiducialListSelected)
+    self.table.connect("cellChanged (int,int)", self._onCellChanged)
+    self.table.connect('clicked(QModelIndex)', self._onTargetSelectionChanged)
 
-  def onTargetSelectionChanged(self, modelIndex):
+  def _onTargetSelectionChanged(self, modelIndex):
     self.invokeEvent(self.TargetSelectedEvent, str({"nodeID": self.currentNode.GetID(),
                                                     "index": modelIndex.row()}))
 
-  def onInteractionModeChanged(self, caller, event):
+  def _onInteractionModeChanged(self, caller, event):
     if not self.currentNode:
       return
-    if self.selectionNode.GetActivePlaceNodeID() == self.currentNode.GetID():
-      interactionMode = self.interactionNode.GetCurrentInteractionMode()
-      self.invokeEvent(self.TargetingStartedEvent if interactionMode == self.interactionNode.Place else
+    if self._selectionNode.GetActivePlaceNodeID() == self.currentNode.GetID():
+      interactionMode = self._interactionNode.GetCurrentInteractionMode()
+      self.invokeEvent(self.TargetingStartedEvent if interactionMode == self._interactionNode.Place else
                        self.TargetingFinishedEvent)
-      self.updateButtons()
+      self._updateButtons()
 
-  def onFiducialListSelected(self, node):
+  def _onFiducialListSelected(self, node):
     self.currentNode = node
 
-  def startPlacing(self):
-    if not self.currentNode:
-      self.createNewFiducialNode(name=self.DEFAULT_FIDUCIAL_LIST_NAME)
-    self.selectionNode.SetReferenceActivePlaceNodeID(self.currentNode.GetID())
-    self.interactionNode.SetPlaceModePersistence(1)
-    self.interactionNode.SetCurrentInteractionMode(self.interactionNode.Place)
-
-  def stopPlacing(self):
-    self.interactionNode.SetCurrentInteractionMode(self.interactionNode.ViewTransform)
-
-  def createNewFiducialNode(self, name=None):
+  def _createNewFiducialNode(self, name=None):
     markupsLogic = slicer.modules.markups.logic()
     self.currentNode = slicer.mrmlScene.GetNodeByID(markupsLogic.AddNewFiducialNode())
     self.currentNode.SetName(name if name else self.currentNode.GetName())
 
-  def resetTable(self):
-    self.cleanupButtons()
-    self.table.setRowCount(0)
-    self.table.clear()
-    self.table.setHorizontalHeaderLabels(self._HEADERS)
+  def _cleanupButtons(self):
+    for button in self._connectedButtons:
+      button.clicked.disconnect(self._handleDeleteButtonClicked)
+    self._connectedButtons = []
 
-  def cleanupButtons(self):
-    for button in self.connectedButtons:
-      button.clicked.disconnect(self.handleDeleteButtonClicked)
-    self.connectedButtons = []
+  def _removeTargetListObservers(self):
+    if self.currentNode and self._modifiedEventObserverTag:
+      self._modifiedEventObserverTag = self.currentNode.RemoveObserver(self._modifiedEventObserverTag)
 
-  def removeTargetListObservers(self):
-    if self.currentNode and len(self.fiducialNodeObservers) > 0:
-      for observer in self.fiducialNodeObservers:
-        self.currentNode.RemoveObserver(observer)
-    self.fiducialNodeObservers = []
-
-  def addTargetListObservers(self):
+  def _addTargetListObservers(self):
+    self._removeTargetListObservers()
     if self.currentNode:
-      for event in self.FIDUCIAL_LIST_OBSERVED_EVENTS:
-        self.fiducialNodeObservers.append(self.currentNode.AddObserver(event, self.onFiducialsUpdated))
+      self._modifiedEventObserverTag = self.currentNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self._onFiducialsUpdated)
 
-  def updateButtons(self):
+  def _updateButtons(self):
     if not self.currentNode or self.currentNode.GetNumberOfFiducials() == 0:
-      self.startTargetingButton.icon = self.setTargetsIcon
+      self.startTargetingButton.icon = self.addTargetsIcon
       self.startTargetingButton.toolTip = "Place Target(s)"
     else:
       self.startTargetingButton.icon = self.modifyTargetsIcon
       self.startTargetingButton.toolTip = "Modify Target(s)"
-    interactionMode = self.interactionNode.GetCurrentInteractionMode()
-    self.startTargetingButton.enabled = not interactionMode == self.interactionNode.Place
-    self.stopTargetingButton.enabled = interactionMode == self.interactionNode.Place
+    interactionMode = self._interactionNode.GetCurrentInteractionMode()
+    self.startTargetingButton.enabled = not interactionMode == self._interactionNode.Place
+    self.stopTargetingButton.enabled = interactionMode == self._interactionNode.Place
 
-  def updateTable(self):
-    self.resetTable()
+  def _updateTable(self):
+    self._resetTable()
     if not self.currentNode:
       return
     nOfControlPoints = self.currentNode.GetNumberOfFiducials()
@@ -306,35 +322,32 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
       self.table.setItem(i, 0, cellLabel)
       self._addDeleteButton(i, 1)
 
+  def _resetTable(self):
+    self._cleanupButtons()
+    self.table.setRowCount(0)
+    self.table.clear()
+    self.table.setHorizontalHeaderLabels(self._HEADERS)
+
   def _addDeleteButton(self, row, col):
     button = qt.QPushButton('X')
     self.table.setCellWidget(row, col, button)
-    button.clicked.connect(lambda: self.handleDeleteButtonClicked(row))
-    self.connectedButtons.append(button)
+    button.clicked.connect(lambda: self._handleDeleteButtonClicked(row))
+    self._connectedButtons.append(button)
 
-  def handleDeleteButtonClicked(self, idx):
-    if slicer.util.confirmYesNoDisplay("Do you really want to delete fiducial %s?"
-                                               % self.currentNode.GetNthFiducialLabel(idx), windowTitle="mpReview"):
+  def _handleDeleteButtonClicked(self, idx):
+    if slicer.util.confirmYesNoDisplay("Do you really want to delete target %s?"
+                                         % self.currentNode.GetNthFiducialLabel(idx)):
       self.currentNode.RemoveMarkup(idx)
 
-  def onFiducialsUpdated(self, caller, event):
-    if caller.IsA("vtkMRMLMarkupsFiducialNode") and event == self.MODIFIED_EVENT:
-      self.updateTable()
-      self.updateButtons()
+  def _onFiducialsUpdated(self, caller, event):
+    if caller.IsA("vtkMRMLMarkupsFiducialNode") and event == "ModifiedEvent":
+      self._updateTable()
+      self._updateButtons()
       self.invokeEvent(vtk.vtkCommand.ModifiedEvent)
 
-  def onCellChanged(self, row, col):
+  def _onCellChanged(self, row, col):
     if col == 0:
       self.currentNode.SetNthFiducialLabel(row, self.table.item(row, col).text())
-
-  def getOrCreateFiducialNode(self):
-    node = self.targetListSelector.currentNode()
-    if not node:
-      node = self.targetListSelector.addNode()
-    return node
-
-  def hasTargetListAtLeastOneTarget(self):
-    return self.currentNode is not None and self.currentNode.GetNumberOfFiducials() > 0
 
 
 class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
