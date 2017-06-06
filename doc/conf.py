@@ -27,7 +27,8 @@ body = dict(__doc__='docstring', __name__='not_A', __module__='modname')
 _classnames = [
   'QWidget',
   'QGroupBox',
-  'QPushButton'
+  'QPushButton',
+  'QMessageBox'
 ]
 
 
@@ -66,7 +67,7 @@ sys.modules['vtk.vtkCommand.UserEvent'] = 1
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinxcontrib.napoleon']
+extensions = ['sphinx.ext.autodoc', 'sphinx_paramlinks', 'sphinx.ext.doctest', 'sphinxcontrib.napoleon']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

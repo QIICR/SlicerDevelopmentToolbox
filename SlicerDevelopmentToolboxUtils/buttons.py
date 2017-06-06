@@ -65,6 +65,9 @@ class ModuleSettingsButton(BasicIconButton):
   Args:
     moduleName (str): Name of the module whose settings you want to see (modify).
     text (str, optional): text to be displayed for the button
+
+  See Also: :paramref:`SlicerDevelopmentToolboxUtils.widgets.SettingsMessageBox`
+
   """
 
   _ICON_FILENAME = 'icon-settings.png'

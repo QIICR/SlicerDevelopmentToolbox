@@ -110,11 +110,10 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
       info = ast.literal_eval(callData)
       node = slicer.mrmlScene.GetNodeByID(info["nodeID"])
       index = info["index"]
-      print node
       print "%s clicked" % node.GetNthFiducialLabel(index)
 
 
-    from SlicerDevelopmentToolboxUtils.widgets import *
+    from SlicerDevelopmentToolboxUtils.widgets import TargetCreationWidget
     t = TargetCreationWidget()
     t.targetListSelectorVisible = True
     t.addEventObserver(t.TargetSelectedEvent, onTargetSelected)
@@ -351,19 +350,30 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
 
 class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
+  """ QMessageBox that displays qt.QSettings defined for module 'moduleName'
 
-  def getSettingNames(self):
-    return [s.replace(self.moduleName+"/", "") for s in list(qt.QSettings().allKeys()) if str.startswith(str(s),
-                                                                                                         self.moduleName)]
+  Args:
+      moduleName (str): name of the module which qt.QSettings you want to view/modify
+      parent (qt.QWidget, optional): parent of the widget
+
+  .. doctest::
+
+    from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox
+    s = SettingsMessageBox(moduleName='DICOM')
+    s.show()
+
+
+  See Also: :paramref:`SlicerDevelopmentToolboxUtils.buttons.ModuleSettingsButton`
+  """
 
   def __init__(self, moduleName, parent=None, **kwargs):
     self.moduleName = moduleName
-    self.elements = []
+    self._elements = []
     qt.QMessageBox.__init__(self, parent, **kwargs)
-    self.setup()
+    self._setup()
     self.adjustSize()
 
-  def setup(self):
+  def _setup(self):
     self.setLayout(qt.QGridLayout())
     self.okButton = self.createButton("OK")
     self.cancelButton = self.createButton("Cancel")
@@ -372,17 +382,17 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     self.addButton(self.cancelButton, qt.QMessageBox.NoRole)
 
     self.layout().addWidget(self.createHLayout([self.okButton, self.cancelButton]), 1, 1, 1, 2)
-    self.okButton.clicked.connect(self.onOkButtonClicked)
+    self.okButton.clicked.connect(self._onOkButtonClicked)
 
-  def createUIFromSettings(self):
+  def _createUIFromSettings(self):
     if getattr(self, "settingGroupBox", None):
       self.settingGroupBox.setParent(None)
       del self.settingGroupBox
     self.settingGroupBox = qt.QGroupBox()
     self.settingGroupBox.setStyleSheet("QGroupBox{border:0;}")
     self.settingGroupBox.setLayout(qt.QGridLayout())
-    self.elements = []
-    for index, setting in enumerate(self.getSettingNames()):
+    self._elements = []
+    for index, setting in enumerate(self._getSettingNames()):
       label = self.createLabel(setting)
       value = self.getSetting(setting)
 
@@ -425,12 +435,26 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
         element.setProperty("attributeName", label.text)
         self.settingGroupBox.layout().addWidget(label, index, 0)
         self.settingGroupBox.layout().addWidget(element, index, 1, 1, qt.QSizePolicy.ExpandFlag)
-        self.elements.append(element)
+        self._elements.append(element)
     self.layout().addWidget(self.settingGroupBox, 0, 1, 1, 2)
 
+  def _getSettingNames(self):
+    keys = list(qt.QSettings().allKeys())
+    return [s.replace(self.moduleName + "/", "") for s in keys if str.startswith(str(s), self.moduleName)]
+
   def show(self):
-    self.createUIFromSettings()
-    qt.QWidget.show(self)
+    """ Displays the settings QMessageBox... All necessary ui components will be build depending on the settings type.
+    """
+    self._createUIFromSettings()
+    qt.QMessageBox.show(self)
+
+  def hide(self):
+    """ Hides the settings QMessageBox
+
+    Note: Usually this method would not be used because once the QMessageBox is displayed, everything else in the
+          background will be disabled and is not accessible until the QMessageBox is closed.
+    """
+    qt.QMessageBox.hide(self)
 
   def _onAttributeModified(self, element):
     element.setProperty("modified", True)
@@ -440,8 +464,8 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     metrics = qt.QFontMetrics(font)
     return metrics.width(text)
 
-  def onOkButtonClicked(self):
-    for element in self.elements:
+  def _onOkButtonClicked(self):
+    for element in self._elements:
       if not element.property("modified"):
         continue
       if isinstance(element, qt.QCheckBox):
