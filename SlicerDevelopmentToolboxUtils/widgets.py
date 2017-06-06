@@ -495,15 +495,16 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
 
 
 class DimensionEditBase(qt.QWidget, ModuleWidgetMixin):
+  """ Base class widget for two dimensional inputs."""
 
   ModifiedEvent = vtk.vtkCommand.UserEvent + 2324
 
   def __init__(self, first, second, parent=None):
     super(DimensionEditBase, self).__init__(parent)
-    self.setup(first, second)
-    self.setupConnections()
+    self._setup(first, second)
+    self._setupConnections()
 
-  def setup(self, first, second):
+  def _setup(self, first, second):
     self.setLayout(qt.QHBoxLayout())
     self.firstDimension = qt.QSpinBox()
     self.firstDimension.maximum = 9999
@@ -514,18 +515,20 @@ class DimensionEditBase(qt.QWidget, ModuleWidgetMixin):
     self.layout().addWidget(self.firstDimension)
     self.layout().addWidget(self.secondDimension)
 
-  def setupConnections(self):
-    self.firstDimension.valueChanged.connect(self.onValueChanged)
-    self.secondDimension.valueChanged.connect(self.onValueChanged)
+  def _setupConnections(self):
+    self.firstDimension.valueChanged.connect(self._onValueChanged)
+    self.secondDimension.valueChanged.connect(self._onValueChanged)
 
-  def onValueChanged(self, value):
+  def _onValueChanged(self, value):
     self.invokeEvent(self.ModifiedEvent)
 
 
 class SizeEdit(DimensionEditBase):
+  """ Widget representing a spinbox for width and another for height."""
 
   @property
   def width(self):
+    """horizontal extent"""
     return self.firstDimension.value
 
   @width.setter
@@ -534,6 +537,7 @@ class SizeEdit(DimensionEditBase):
 
   @property
   def height(self):
+    """vertical extent"""
     return self.secondDimension.value
 
   @height.setter
@@ -545,9 +549,11 @@ class SizeEdit(DimensionEditBase):
 
 
 class PointEdit(DimensionEditBase):
+  """ Widget for displaying two dimensional position. One spinbox for x and another for y."""
 
   @property
   def x(self):
+    """x position"""
     return self.firstDimension.value
 
   @x.setter
@@ -556,6 +562,7 @@ class PointEdit(DimensionEditBase):
 
   @property
   def y(self):
+    """y position"""
     return self.secondDimension.value
 
   @y.setter
@@ -567,6 +574,7 @@ class PointEdit(DimensionEditBase):
 
 
 class ExtendedQMessageBox(qt.QMessageBox):
+  """ QMessageBox which is extended by an additional checkbox for remembering selection without notifying again."""
 
   def __init__(self, parent= None):
     super(ExtendedQMessageBox, self).__init__(parent)
@@ -581,19 +589,52 @@ class ExtendedQMessageBox(qt.QMessageBox):
 
 
 class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
+  """ Reception/import window for DICOM data into a specified directory sent via storescu or from a selected directory.
 
-  def __init__(self, incomingDataDirectory, title="Receiving image data",
-               skipText="Skip", cancelText="Cancel", *args):
+  Besides running a DICOM receiver via storescp in the background, the operator also can choose to import recursively
+  from a directory. Once reception has finished, the window will automatically be hidden.
+
+  Note: The used port for incoming DICOM data is '11112'
+
+  Args:
+    incomingDataDirectory (str): directory where the received DICOM files will be stored
+    title (str, optional): window title
+    skipText (str, optional): text to be displayed for the skip button
+    cancelText (str, optional): text to be displayed for the cancel button
+
+  .. doctest::
+
+    def onReceptionFinished(caller, event):
+      print "Reception finished"
+
+    from SlicerDevelopmentToolboxUtils.widgets import IncomingDataWindow
+
+    window = IncomingDataWindow(slicer.app.temporaryPath)
+    window.addEventObserver(window.IncomingDataReceiveFinishedEvent, onReceptionFinished)
+    window.show()
+
+    # receive data on port 11112 and wait for slot to be called
+
+  See Also: :paramref:`SlicerDevelopmentToolboxUtils.helpers.SmartDICOMReceiver`
+
+  """
+
+  IncomingDataSkippedEvent = SlicerDevelopmentToolboxEvents.IncomingDataSkippedEvent
+  """Invoked when skip button was used"""
+  IncomingDataCanceledEvent = SlicerDevelopmentToolboxEvents.IncomingDataCanceledEvent
+  """Invoked when cancel button was used"""
+  IncomingDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent
+  """Invoked when reception has finished"""
+
+  def __init__(self, incomingDataDirectory, title="Receiving image data", skipText="Skip", cancelText="Cancel", *args):
     super(IncomingDataWindow, self).__init__(*args)
     self.setWindowTitle(title)
     self.setWindowFlags(qt.Qt.CustomizeWindowHint | qt.Qt.WindowTitleHint | qt.Qt.WindowStaysOnTopHint)
     self.skipButtonText = skipText
     self.cancelButtonText = cancelText
-    self.setup()
-    self.dicomReceiver = SmartDICOMReceiver(incomingDataDirectory=incomingDataDirectory)
-    self.dicomReceiver.addEventObserver(self.dicomReceiver.StatusChangedEvent, self.onStatusChanged)
-    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingDataReceiveFinishedEvent, self.onReceiveFinished)
-    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingFileCountChangedEvent, self.onReceivingData)
+    self._setup()
+    self._setupConnections()
+    self._setupDICOMReceiver(incomingDataDirectory)
     self.dicomSender = None
 
   def __del__(self):
@@ -602,15 +643,20 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
       self.dicomReceiver.removeEventObservers()
 
   @vtk.calldata_type(vtk.VTK_STRING)
-  def onStatusChanged(self, caller, event, callData):
+  def _onStatusChanged(self, caller, event, callData):
     self.textLabel.text = callData
 
   @vtk.calldata_type(vtk.VTK_INT)
-  def onReceivingData(self, caller, event, callData):
+  def _onReceivingData(self, caller, event, callData):
     self.skipButton.enabled = False
     self.directoryImportButton.enabled = False
 
   def show(self, disableWidget=None):
+    """ Opens the window and starts the DICOM reception process
+
+    Args:
+      disableWidget (qt.QWidget, optional): widget that needs to get disabled once IncomingDataWindow opens
+    """
     self.disabledWidget = disableWidget
     if disableWidget:
       disableWidget.enabled = False
@@ -618,13 +664,15 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     self.dicomReceiver.start()
 
   def hide(self):
+    """ Closes the window, stops the DICOM reception process, and enables the widget that has been disabled (optional)
+    """
     if self.disabledWidget:
       self.disabledWidget.enabled = True
       self.disabledWidget = None
     qt.QWidget.hide(self)
     self.dicomReceiver.stop()
 
-  def setup(self):
+  def _setup(self):
     self.setLayout(qt.QGridLayout())
     self.statusLabel = qt.QLabel("Status:")
     self.textLabel = qt.QLabel()
@@ -653,26 +701,30 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     for b in [self.skipButton, self.cancelButton, self.directoryImportButton]:
       b.minimumHeight = buttonHeight
 
-    self.setupConnections()
+  def _setupConnections(self):
+    self.buttonGroup.connect('buttonClicked(QAbstractButton*)', self._onButtonClicked)
+    self.directoryImportButton.directorySelected.connect(self._onImportDirectorySelected)
 
-  def setupConnections(self):
-    self.buttonGroup.connect('buttonClicked(QAbstractButton*)', self.onButtonClicked)
-    self.directoryImportButton.directorySelected.connect(self.onImportDirectorySelected)
+  def _setupDICOMReceiver(self, incomingDataDirectory):
+    self.dicomReceiver = SmartDICOMReceiver(incomingDataDirectory=incomingDataDirectory)
+    self.dicomReceiver.addEventObserver(self.dicomReceiver.StatusChangedEvent, self._onStatusChanged)
+    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingDataReceiveFinishedEvent, self._onReceptionFinished)
+    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingFileCountChangedEvent, self._onReceivingData)
 
-  def onButtonClicked(self, button):
+  def _onButtonClicked(self, button):
     self.hide()
     if button is self.skipButton:
-      self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataSkippedEvent)
+      self.invokeEvent(self.IncomingDataSkippedEvent)
     else:
-      self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataCanceledEvent)
+      self.invokeEvent(self.IncomingDataCanceledEvent)
       if self.dicomSender:
         self.dicomSender.stop()
 
-  def onReceiveFinished(self, caller, event):
+  def _onReceptionFinished(self, caller, event):
     self.hide()
-    self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent)
+    self.invokeEvent(self.IncomingDataReceiveFinishedEvent)
 
-  def onImportDirectorySelected(self, directory):
+  def _onImportDirectorySelected(self, directory):
     self.dicomSender = DICOMDirectorySender(directory, 'localhost', 11112)
 
 
