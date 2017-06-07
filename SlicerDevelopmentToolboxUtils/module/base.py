@@ -113,7 +113,7 @@ class WidgetBase(qt.QWidget, SessionBasedModuleBase, ModuleWidgetMixin):
     self.setLayout(self.LayoutClass())
     self.setupIcons()
     self.setup()
-    self.setupSessionObservers()
+    self.addSessionObservers()
     self.setupConnections()
 
   def __del__(self):
@@ -128,7 +128,7 @@ class WidgetBase(qt.QWidget, SessionBasedModuleBase, ModuleWidgetMixin):
   def setupConnections(self):
     NotImplementedError("This method needs to be implemented for %s" % self.NAME)
 
-  def setupSessionObservers(self):
+  def addSessionObservers(self):
     self.session.addEventObserver(self.session.NewCaseStartedEvent, self.onNewCaseStarted)
     self.session.addEventObserver(self.session.CaseOpenedEvent, self.onCaseOpened)
     self.session.addEventObserver(self.session.CloseCaseEvent, self.onCaseClosed)

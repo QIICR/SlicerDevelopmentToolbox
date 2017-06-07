@@ -1,19 +1,18 @@
 import datetime
+import logging
+import os
+import sys
 import xml.dom
 
+import ctk
 import qt
 import slicer
 import vtk
-import os
-import sys
-import ctk
-import logging
-
 from constants import DICOMTAGS
+from decorators import singleton
 from events import SlicerDevelopmentToolboxEvents
 from helpers import SmartDICOMReceiver, DICOMDirectorySender
 from mixins import ModuleWidgetMixin, ModuleLogicMixin
-from decorators import singleton
 
 
 @singleton
@@ -175,11 +174,6 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self._setup()
     self._currentNode = None
     self._setupConnections()
-
-  def _processKwargs(self, **kwargs):
-    for key, value in kwargs.iteritems():
-      if hasattr(self, key):
-        setattr(self, key, value)
 
   def reset(self):
     """ reset exits the fiducial/target placement mode and sets the currently observed vtkMRMLMarkupsFiducialNode to None

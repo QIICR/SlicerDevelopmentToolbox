@@ -77,6 +77,11 @@ class ParameterNodeObservationMixin(object):
 
 class GeneralModuleMixin(ParameterNodeObservationMixin):
 
+  def _processKwargs(self, **kwargs):
+    for key, value in kwargs.iteritems():
+      if hasattr(self, key):
+        setattr(self, key, value)
+
   @staticmethod
   def getSlicerErrorLogPath():
     return slicer.app.errorLogModel().filePath
@@ -290,6 +295,16 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     view.setModel(model)
     view.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
     return view, model
+
+  def setBackgroundToVolumeID(self, volume, clearLabels=True):
+    for widget in self.getAllVisibleWidgets():
+      compositeNode = widget.mrmlSliceCompositeNode()
+      if clearLabels:
+        compositeNode.SetLabelVolumeID(None)
+      compositeNode.SetForegroundVolumeID(None)
+      compositeNode.SetBackgroundVolumeID(volume.GetID() if volume else None)
+      sliceNode = widget.sliceLogic().GetSliceNode()
+      sliceNode.RotateToVolumePlane(volume)
 
   def createIcon(self, filename, iconPath=None):
     if not iconPath:
@@ -740,8 +755,8 @@ class ModuleLogicMixin(GeneralModuleMixin):
     tfmLogic.hardenTransform(node)
 
   @staticmethod
-  def setAndObserveDisplayNode(node):
-    displayNode = slicer.vtkMRMLModelDisplayNode()
+  def createAndObserveDisplayNode(node, displayNodeClass=slicer.vtkMRMLDisplayNode):
+    displayNode = displayNodeClass()
     slicer.mrmlScene.AddNode(displayNode)
     node.SetAndObserveDisplayNodeID(displayNode.GetID())
     return displayNode
