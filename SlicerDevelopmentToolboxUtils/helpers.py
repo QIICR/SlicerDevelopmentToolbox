@@ -9,9 +9,11 @@ import DICOMLib
 import qt
 import slicer
 import vtk
+
 from DICOMLib import DICOMProcess
 from events import SlicerDevelopmentToolboxEvents
 from mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
+from decorators import logmethod
 
 
 class SampleDataDownloader(FancyURLopener, ParameterNodeObservationMixin):
@@ -165,11 +167,9 @@ class DirectoryWatcher(ModuleLogicMixin):
   StoppedWatchingEvent = SlicerDevelopmentToolboxEvents.DICOMReceiverStoppedEvent
   IncomingFileCountChangedEvent = SlicerDevelopmentToolboxEvents.IncomingFileCountChangedEvent
 
-  SUPPORTED_EVENTS = [StartedWatchingEvent, StoppedWatchingEvent, IncomingFileCountChangedEvent]
-
   def __init__(self, directory):
     self.observedDirectory = directory
-    self.setupTimers()
+    self._setupTimer()
     self.reset()
 
   def __del__(self):
@@ -185,7 +185,7 @@ class DirectoryWatcher(ModuleLogicMixin):
   def isRunning(self):
     return self._running
 
-  def setupTimers(self):
+  def _setupTimer(self):
     self.watchTimer = self.createTimer(interval=1000, slot=self._startWatching, singleShot=True)
 
   def start(self):
@@ -203,14 +203,17 @@ class DirectoryWatcher(ModuleLogicMixin):
       self.invokeEvent(self.StoppedWatchingEvent)
 
   def _startWatching(self):
-    if not self.isRunning:
+    if not self._running:
       return
     self.currentFileList = self.getFileList(self.observedDirectory)
     currentFileListCount = len(self.currentFileList)
     if self.lastFileCount != currentFileListCount:
       self._onFileCountChanged(currentFileListCount)
     else:
-      self.watchTimer.start()
+      self._onFileCountUnchanged()
+
+  def _onFileCountUnchanged(self):
+    self.watchTimer.start()
 
   def _onFileCountChanged(self, currentFileListCount):
     self.lastFileCount = currentFileListCount
@@ -223,14 +226,12 @@ class TimeoutDirectoryWatcher(DirectoryWatcher):
 
   IncomingDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent
 
-  SUPPORTED_EVENTS = DirectoryWatcher.SUPPORTED_EVENTS + [IncomingDataReceiveFinishedEvent]
-
   def __init__(self, directory, timeout=5000):
     self.receiveFinishedTimeout = timeout
     super(TimeoutDirectoryWatcher, self).__init__(directory)
 
-  def setupTimers(self):
-    super(TimeoutDirectoryWatcher, self).setupTimers()
+  def _setupTimer(self):
+    super(TimeoutDirectoryWatcher, self)._setupTimer()
     self.dataReceivedTimer = self.createTimer(interval=5000, slot=self._checkIfStillSameFileCount, singleShot=True)
 
   def stop(self):
@@ -238,14 +239,9 @@ class TimeoutDirectoryWatcher(DirectoryWatcher):
       self.dataReceivedTimer.stop()
     super(TimeoutDirectoryWatcher, self).stop()
 
-  def _startWatching(self):
-    if not self.isRunning:
-      return
-    self.currentFileList = self.getFileList(self.observedDirectory)
+  def _onFileCountUnchanged(self):
     currentFileListCount = len(self.currentFileList)
-    if self.lastFileCount != currentFileListCount:
-      self._onFileCountChanged(currentFileListCount)
-    elif currentFileListCount != len(self.startingFileList):
+    if currentFileListCount != len(self.startingFileList):
       self.lastFileCount = currentFileListCount
       self.dataReceivedTimer.start()
     else:

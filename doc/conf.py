@@ -28,7 +28,8 @@ _classnames = [
   'QWidget',
   'QGroupBox',
   'QPushButton',
-  'QMessageBox'
+  'QMessageBox',
+  'QDialog'
 ]
 
 

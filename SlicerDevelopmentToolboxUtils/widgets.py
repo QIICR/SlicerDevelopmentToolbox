@@ -1015,3 +1015,142 @@ class DICOMBasedInformationWatchBox(FileBasedInformationWatchBox):
         values.append(currentValue)
       return self._getTagValueFromTagValues(values)
     return ""
+
+
+class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
+  """ Dialog for testing network connectivity specifically for DICOM reception
+
+  This dialog can be used to test the reception of DICOM data for a specific port. Once the start buttons is clicked
+  a temporary directory will be created under slicer.app.temporaryPath. Closing the dialog also will stop the DICOM
+  receiver (in case it's running) and the temporarily created directory will be deleted.
+
+  Status color codes:
+    Red:
+      Initial status
+    Yellow:
+      DICOM receiver (storescp) started and waiting for incoming data
+    Green:
+      Success!
+
+  Args:
+    incomingPort (str, optional): port on which DICOM data is expected to be received. Default: 11112
+    parent (qt.QWidget, optional): parent of the widget
+
+  .. doctest::
+
+    from SlicerDevelopmentToolboxUtils.widgets import DICOMReceptionTestWidget
+    dicomTestWidget = DICOMReceptionTestWidget()
+    dicomTestWidget.show()
+  """
+
+  __Initial_Style = 'background-color: indianred; color: black;'
+  __Waiting_Style = 'background-color: gold; color: black;'
+  __Success_Style = 'background-color: green; color: black;'
+
+  __Initial_Status_Text = "Not Running."
+  __Success_Status_Text = "DICOM reception successfully tested!"
+
+  DICOMReceptionSuccessfulEvent = vtk.vtkCommand.UserEvent + 101
+
+  def __init__(self, incomingPort="11112", parent=None):
+    qt.QDialog.__init__(self, parent)
+    self.__dicomReceiver = None
+    self.__incomingPort = incomingPort
+    self.success = False
+    self.setup()
+
+  def setup(self):
+    """ Setup user interface including signal connections"""
+    self.setLayout(qt.QGridLayout())
+    self.incomingPortSpinBox = qt.QSpinBox()
+    self.incomingPortSpinBox.setMaximum(65535)
+    if self.__incomingPort:
+      self.incomingPortSpinBox.setValue(int(self.__incomingPort))
+    self.startButton = self.createButton("Start")
+    self.stopButton = self.createButton("Stop", enabled=False)
+    self.statusEdit = self.createLineEdit(self.__Initial_Status_Text, enabled=False)
+    self.statusEdit.setStyleSheet(self.__Initial_Style)
+
+    self.layout().addWidget(qt.QLabel("Port:"), 0, 0)
+    self.layout().addWidget(self.incomingPortSpinBox, 0, 1)
+    self.layout().addWidget(qt.QLabel("Status:"), 1, 0)
+    self.layout().addWidget(self.statusEdit, 1, 1)
+    self.layout().addWidget(self.startButton, 2, 0)
+    self.layout().addWidget(self.stopButton, 2, 1)
+    self._setupConnections()
+
+  def show(self):
+    """Displays the dialog"""
+    self.statusEdit.setText(self.__Initial_Status_Text)
+    qt.QDialog.show(self)
+
+  def hide(self):
+    """Hides the dialog, stops the DICOM receiver in case it is running and deletes the temporarily created directory"""
+    self._cleanup()
+    qt.QDialog.hide()
+
+  def reject(self):
+    """Rejects the dialog and cleans up DICOM receiver and temporarily created directory"""
+    self._cleanup()
+    qt.QDialog.reject(self)
+
+  def _setupConnections(self):
+    self.startButton.clicked.connect(self._onStartButtonClicked)
+    self.stopButton.clicked.connect(self._onStopButtonClicked)
+    self.statusEdit.textChanged.connect(self._onStatusEditTextChanged)
+    self.incomingPortSpinBox.valueChanged.connect(lambda value: self.statusEdit.setText(self.__Initial_Status_Text))
+
+  def _onStartButtonClicked(self):
+    self.startButton.enabled = False
+    self.incomingPortSpinBox.enabled = False
+    self.stopButton.enabled = True
+    self._start()
+
+  def _start(self):
+    from datetime import datetime
+    directory = os.path.join(slicer.app.temporaryPath, datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))
+    ModuleLogicMixin.createDirectory(directory)
+    self.__dicomReceiver = SmartDICOMReceiver(directory, self.incomingPortSpinBox.value)
+    self.__dicomReceiver.addEventObserver(SmartDICOMReceiver.StatusChangedEvent, self._onDICOMReceiverStatusChanged)
+    self.__dicomReceiver.addEventObserver(SmartDICOMReceiver.IncomingFileCountChangedEvent, self._onFilesReceived)
+    self.__dicomReceiver.start()
+    self.statusEdit.setStyleSheet(self.__Waiting_Style)
+
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def _onDICOMReceiverStatusChanged(self, caller, event, callData):
+    self.statusEdit.setText(callData)
+
+  @vtk.calldata_type(vtk.VTK_INT)
+  def _onFilesReceived(self, caller, event, count):
+    self._onStopButtonClicked()
+    self.statusEdit.setText(self.__Success_Status_Text)
+    self.statusEdit.setStyleSheet(self.__Success_Style)
+    self.invokeEvent(self.DICOMReceptionSuccessfulEvent)
+
+  def _onStopButtonClicked(self):
+    self.startButton.enabled = True
+    self.incomingPortSpinBox.enabled = True
+    self.stopButton.enabled = False
+    self.__dicomReceiver.stop()
+    self.__dicomReceiver.removeEventObservers()
+    self.statusEdit.setText(self.__Initial_Status_Text)
+    self.statusEdit.setStyleSheet(self.__Initial_Style)
+
+  def _onStatusEditTextChanged(self, text):
+    fm = qt.QFontMetrics(qt.QFont(text, 0))
+    width = fm.width(text)
+    if width > self.statusEdit.width:
+      self.statusEdit.setFixedSize(width+12, self.statusEdit.height) # border width: 2+2 and padding: 8 = 2+2+8=12
+
+  def _cleanup(self):
+    if self.__dicomReceiver:
+      if self.__dicomReceiver.isRunning():
+        self._onStopButtonClicked()
+
+      try:
+        import shutil
+        shutil.rmtree(self.__dicomReceiver.incomingDataDirectory)
+      except OSError:
+        pass
+      finally:
+        self.__dicomReceiver = None
