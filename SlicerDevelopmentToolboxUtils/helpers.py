@@ -276,11 +276,12 @@ class SmartDICOMReceiver(ModuleLogicMixin):
   SUPPORTED_EVENTS = [DICOMReceiverStartedEvent, DICOMReceiverStoppedEvent, StatusChangedEvent,
                       IncomingDataReceiveFinishedEvent, IncomingFileCountChangedEvent]
 
-  def __init__(self, incomingDataDirectory):
+  def __init__(self, incomingDataDirectory, incomingPort=None):
     self.incomingDataDirectory = incomingDataDirectory
     self.directoryWatcher = TimeoutDirectoryWatcher(incomingDataDirectory)
     self.connectEvents()
     self.storeSCPProcess = None
+    self.incomingPort = None if not incomingPort else int(incomingPort)
     self.reset()
     slicer.app.connect('aboutToQuit()', self.stop)
 
@@ -344,7 +345,8 @@ class SmartDICOMReceiver(ModuleLogicMixin):
 
   def startStoreSCP(self):
     self.stopStoreSCP()
-    self.storeSCPProcess = DICOMLib.DICOMStoreSCPProcess(incomingDataDir=self.incomingDataDirectory)
+    self.storeSCPProcess = DICOMLib.DICOMStoreSCPProcess(incomingDataDir=self.incomingDataDirectory,
+                                                         incomingPort=self.incomingPort)
     self.storeSCPProcess.start()
 
   def stopStoreSCP(self):

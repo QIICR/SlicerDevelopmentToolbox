@@ -409,6 +409,7 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
           element.toggled.connect(lambda enabled, e=element: self._onAttributeModified(e))
         elif value.isdigit():
           element = qt.QSpinBox()
+          element.setMaximum(999999)
           element.value = int(value)
           element.valueChanged.connect(lambda newVal, e=element: self._onAttributeModified(e))
         elif os.path.exists(value):
@@ -592,6 +593,7 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
 
   Args:
     incomingDataDirectory (str): directory where the received DICOM files will be stored
+    incomingPort (str, optional): port on which DICOM images are expected to be received
     title (str, optional): window title
     skipText (str, optional): text to be displayed for the skip button
     cancelText (str, optional): text to be displayed for the cancel button
@@ -620,12 +622,14 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
   IncomingDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent
   """Invoked when reception has finished"""
 
-  def __init__(self, incomingDataDirectory, title="Receiving image data", skipText="Skip", cancelText="Cancel", *args):
+  def __init__(self, incomingDataDirectory, incomingPort=None, title="Receiving image data", skipText="Skip",
+               cancelText="Cancel", *args):
     super(IncomingDataWindow, self).__init__(*args)
     self.setWindowTitle(title)
     self.setWindowFlags(qt.Qt.CustomizeWindowHint | qt.Qt.WindowTitleHint | qt.Qt.WindowStaysOnTopHint)
     self.skipButtonText = skipText
     self.cancelButtonText = cancelText
+    self.incomingPort = incomingPort
     self._setup()
     self._setupConnections()
     self._setupDICOMReceiver(incomingDataDirectory)
@@ -700,7 +704,8 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     self.directoryImportButton.directorySelected.connect(self._onImportDirectorySelected)
 
   def _setupDICOMReceiver(self, incomingDataDirectory):
-    self.dicomReceiver = SmartDICOMReceiver(incomingDataDirectory=incomingDataDirectory)
+    self.dicomReceiver = SmartDICOMReceiver(incomingDataDirectory=incomingDataDirectory,
+                                            incomingPort=self.incomingPort)
     self.dicomReceiver.addEventObserver(self.dicomReceiver.StatusChangedEvent, self._onStatusChanged)
     self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingDataReceiveFinishedEvent, self._onReceptionFinished)
     self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingFileCountChangedEvent, self._onReceivingData)
