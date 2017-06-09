@@ -96,7 +96,10 @@ class CustomStatusProgressbar(qt.QWidget):
 class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   """ TargetCreationWidget is an exclusive QWidget for creating targets/fiducials
 
+  .. image:: images/TargetCreationWidget.gif
+
   Args:
+
     parent (qt.QWidget, optional): parent of the widget
 
   .. doctest::
@@ -173,10 +176,9 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self._setupIcons()
     self._setup()
     self._currentNode = None
-    self._setupConnections()
 
   def reset(self):
-    """ reset exits the fiducial/target placement mode and sets the currently observed vtkMRMLMarkupsFiducialNode to None
+    """ exits the fiducial/target placement mode and sets the currently observed vtkMRMLMarkupsFiducialNode to None
     """
     self.stopPlacing()
     self.currentNode = None
@@ -203,9 +205,9 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   def hasTargetListAtLeastOneTarget(self):
     """ Returns if currently observed vtkMRMLMarkupsFiducialNode has at least one fiducial
 
-      Returns:
-        bool: True if vtkMRMLMarkupsFiducialNode is not None and number of fiducials in vtkMRMLMarkupsFiducialNode is
-        unequal zero, False otherwise
+    Returns:
+      bool: True if vtkMRMLMarkupsFiducialNode is not None and number of fiducials in vtkMRMLMarkupsFiducialNode is
+      unequal zero, False otherwise
 
     """
     return self.currentNode is not None and self.currentNode.GetNumberOfFiducials() > 0
@@ -221,6 +223,7 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self._setupTargetFiducialListSelector()
     self._setupTargetTable()
     self._setupButtons()
+    self._setupConnections()
 
   def _setupTargetFiducialListSelector(self):
     self.targetListSelector = self.createComboBox(nodeTypes=["vtkMRMLMarkupsFiducialNode", ""], addEnabled=True,
@@ -253,7 +256,7 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.interactionNodeObserver = self._interactionNode.AddObserver(self._interactionNode.InteractionModeChangedEvent,
                                                                      self._onInteractionModeChanged)
     self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self._onFiducialListSelected)
-    self.table.connect("cellChanged (int,int)", self._onCellChanged)
+    self.table.connect("cellChanged(int,int)", self._onCellChanged)
     self.table.connect('clicked(QModelIndex)', self._onTargetSelectionChanged)
 
   def _onTargetSelectionChanged(self, modelIndex):
@@ -344,28 +347,61 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
 
 class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
-  """ QMessageBox that displays qt.QSettings defined for module 'moduleName'
+  """ QMessageBox for displaying qt.QSettings defined for module 'moduleName'.
+
+  Normally Settings are defined in groups e.g. DICOM/{subgroup(optional)}/{settingsName}
+
+  .. image:: images/SettingsMessageBox.png
+    :width: 50%
 
   Args:
-      moduleName (str): name of the module which qt.QSettings you want to view/modify
-      parent (qt.QWidget, optional): parent of the widget
+    moduleNames (list, optional):
+      name of the module(s) which qt.QSettings you want to view/modify
+      if None, all available subgroups from qt.QSettings will be setup in tabs
+    parent (qt.QWidget, optional):
+      parent of the widget
 
-  .. doctest::
+  .. code-block:: python
+    :caption: Display settings for MORE THAN ONE module/group
 
     from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox
-    s = SettingsMessageBox(moduleName='DICOM')
+    s = SettingsMessageBox(moduleNames=['Developer', 'DICOM'])
     s.show()
 
+  .. code-block:: python
+    :caption: Display settings for ONE module/group
+
+    from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox
+    s = SettingsMessageBox(moduleNames='DICOM')
+    s.show()
+
+  .. code-block:: python
+    :caption: Display settings for ALL available modules/groups
+
+    from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox
+    s = SettingsMessageBox() # displays all available settings that are in groups
+    s.show()
 
   See Also: :paramref:`SlicerDevelopmentToolboxUtils.buttons.ModuleSettingsButton`
   """
 
-  def __init__(self, moduleName, parent=None, **kwargs):
-    self.moduleName = moduleName
-    self._elements = []
+  def __init__(self, moduleNames=None, parent=None, **kwargs):
+    self.moduleNames = [moduleNames] if type(moduleNames) is str else moduleNames
     qt.QMessageBox.__init__(self, parent, **kwargs)
     self._setup()
     self.adjustSize()
+
+  def cleanup(self):
+    """Cleans up the 'old' settings groupbox"""
+    if getattr(self, "settingGroupBox", None):
+      self.settingsTabWidget.setParent(None)
+      del self.settingsTabWidget
+
+  def show(self):
+    """ Displays the settings QMessageBox... All necessary ui components will be build depending on the settings type.
+    """
+    self._createUIFromSettings()
+    qt.QMessageBox.show(self)
 
   def _setup(self):
     self.setLayout(qt.QGridLayout())
@@ -379,77 +415,115 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     self.okButton.clicked.connect(self._onOkButtonClicked)
 
   def _createUIFromSettings(self):
-    if getattr(self, "settingGroupBox", None):
-      self.settingGroupBox.setParent(None)
-      del self.settingGroupBox
-    self.settingGroupBox = qt.QGroupBox()
-    self.settingGroupBox.setStyleSheet("QGroupBox{border:0;}")
-    self.settingGroupBox.setLayout(qt.QGridLayout())
+    self.cleanup()
     self._elements = []
-    for index, setting in enumerate(self._getSettingNames()):
-      label = self.createLabel(setting)
-      value = self.getSetting(setting)
+    self.settings = qt.QSettings()
+    self.settingsTabWidget = qt.QTabWidget()
+    moduleNames = self.moduleNames if self.moduleNames and len(self.moduleNames) else self._getSettingGroups()
+    for moduleName in moduleNames:
+      self._addModuleTab(moduleName)
+    self.layout().addWidget(self.settingsTabWidget, 0, 1, 1, 2)
 
-      if isinstance(value, tuple) or isinstance(value, list):
-        element = qt.QListWidget()
-        element.setProperty("type", type(value))
-        map(element.addItem, value)
-      elif isinstance(value, qt.QSize) or isinstance(value, qt.QPoint):
-        if isinstance(value, qt.QSize):
-          element = SizeEdit(value.width(), value.height())
-        else:
-          element = PointEdit(value.x(), value.y())
-        element.setProperty("type", type(value))
-        element.addEventObserver(element.ModifiedEvent, lambda caller, event, e=element: self._onAttributeModified(e))
+  def _addModuleTab(self, moduleName):
+    tabWidget = qt.QFrame()
+    tabWidget.setLayout(qt.QFormLayout())
+    self.settingsTabWidget.addTab(tabWidget, moduleName)
+    self._addSettingsGroup(moduleName, tabWidget)
+
+  def _addSettingsGroup(self, name, parent):
+    widget = qt.QFrame() if isinstance(parent, qt.QFrame) else qt.QGroupBox(name)
+    widget.setLayout(qt.QFormLayout())
+
+    self.settings.beginGroup(name)
+    for setting in self._getSettingAttributes():
+      self._addSettingsAttribute(widget, setting)
+    for groupName in self._getSettingGroups():
+      self._addSettingsGroup(groupName, widget.layout())
+    self.settings.endGroup()
+
+    parentLayout = parent.layout()
+    if isinstance(parentLayout, qt.QHBoxLayout):
+      parentLayout.addWidget(widget)
+    else:
+      parentLayout.addRow(widget)
+
+  def _getSettingAttributes(self):
+    separator = "/"
+    return filter(lambda x: separator not in x, self.settings.allKeys())
+
+  def _getSettingGroups(self):
+    separator = "/"
+    groups = set()
+    for subgroup in filter(lambda x: separator in x, self.settings.allKeys()):
+      groups.add(subgroup.split(separator)[0])
+    return groups
+
+  def _addSettingsAttribute(self, groupBox, setting):
+    value = self.settings.value(setting)
+    group = self.settings.group() + "/" if self.settings.group() else ""
+    if isinstance(value, tuple) or isinstance(value, list):
+      element = qt.QListWidget()
+      element.setProperty("type", type(value))
+      map(element.addItem, value)
+    elif isinstance(value, qt.QSize) or isinstance(value, qt.QPoint):
+      element = self._createDimensionalElement(value)
+    elif isinstance(value, qt.QByteArray):
+      logging.debug("Skipping %s which is a QByteArray" % group+setting)
+      return
+    else:
+      value = str(value)
+      if value.lower() in ["true", "false"]:
+        element = self._createCheckBox(value)
+      elif value.isdigit():
+        element = self._createSpinBox(value)
+      elif os.path.exists(value):
+        element = self._createPathLineEdit(value)
       else:
-        value = str(value)
-        if value.lower() in ["true", "false"]:
-          element = qt.QCheckBox()
-          element.checked = value.lower() == "true"
-          element.toggled.connect(lambda enabled, e=element: self._onAttributeModified(e))
-        elif value.isdigit():
-          element = qt.QSpinBox()
-          element.setMaximum(999999)
-          element.value = int(value)
-          element.valueChanged.connect(lambda newVal, e=element: self._onAttributeModified(e))
-        elif os.path.exists(value):
-          element = ctk.ctkPathLineEdit()
-          if os.path.isdir(value):
-            element.filters = ctk.ctkPathLineEdit.Dirs
-          else:
-            element.filters = ctk.ctkPathLineEdit.Files
-          element.currentPath = value
-          element.currentPathChanged.connect(lambda path, e=element: self._onAttributeModified(e))
-        else:
-          element = self.createLineEdit(value)
-          element.minimumWidth = self._getMinimumTextWidth(element.text) + 10
-          element.textChanged.connect(lambda text, e=element: self._onAttributeModified(e))
+        element = self._createLineEdit(value)
+    if element:
+      element.setProperty("modified", False)
+      element.setProperty("attributeName", group+setting)
+      groupBox.layout().addRow(setting, element)
+      self._elements.append(element)
 
-      if element:
-        element.setProperty("modified", False)
-        element.setProperty("attributeName", label.text)
-        self.settingGroupBox.layout().addWidget(label, index, 0)
-        self.settingGroupBox.layout().addWidget(element, index, 1, 1, qt.QSizePolicy.ExpandFlag)
-        self._elements.append(element)
-    self.layout().addWidget(self.settingGroupBox, 0, 1, 1, 2)
+  def _createDimensionalElement(self, value):
+    if isinstance(value, qt.QSize):
+      dimElement = SizeEdit(value.width(), value.height())
+    else:
+      dimElement = PointEdit(value.x(), value.y())
+    dimElement.setProperty("type", type(value))
+    dimElement.addEventObserver(dimElement.ModifiedEvent, lambda caller, event, e=dimElement: self._onAttributeModified(e))
+    return dimElement
 
-  def _getSettingNames(self):
-    keys = list(qt.QSettings().allKeys())
-    return [s.replace(self.moduleName + "/", "") for s in keys if str.startswith(str(s), self.moduleName)]
+  def _createLineEdit(self, value):
+    lineEdit = self.createLineEdit(value, toolTip=value)
+    lineEdit.minimumWidth = self._getMinimumTextWidth(lineEdit.text) + 10
+    lineEdit.textChanged.connect(lambda text, e=lineEdit: self._onAttributeModified(e))
+    return lineEdit
 
-  def show(self):
-    """ Displays the settings QMessageBox... All necessary ui components will be build depending on the settings type.
-    """
-    self._createUIFromSettings()
-    qt.QMessageBox.show(self)
+  def _createPathLineEdit(self, value):
+    pathLineEdit = ctk.ctkPathLineEdit()
+    if os.path.isdir(value):
+      pathLineEdit.filters = ctk.ctkPathLineEdit.Dirs
+    else:
+      pathLineEdit.filters = ctk.ctkPathLineEdit.Files
+    pathLineEdit.currentPath = value
+    pathLineEdit.toolTip =value
+    pathLineEdit.currentPathChanged.connect(lambda path, e=pathLineEdit: self._onAttributeModified(e))
+    return pathLineEdit
 
-  def hide(self):
-    """ Hides the settings QMessageBox
+  def _createSpinBox(self, value):
+    spinbox = qt.QSpinBox()
+    spinbox.setMaximum(999999)
+    spinbox.value = int(value)
+    spinbox.valueChanged.connect(lambda newVal, e=spinbox: self._onAttributeModified(e))
+    return spinbox
 
-    Note: Usually this method would not be used because once the QMessageBox is displayed, everything else in the
-          background will be disabled and is not accessible until the QMessageBox is closed.
-    """
-    qt.QMessageBox.hide(self)
+  def _createCheckBox(self, value):
+    checkbox = qt.QCheckBox()
+    checkbox.checked = value.lower() == "true"
+    checkbox.toggled.connect(lambda enabled, e=checkbox: self._onAttributeModified(e))
+    return checkbox
 
   def _onAttributeModified(self, element):
     element.setProperty("modified", True)
@@ -460,6 +534,7 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     return metrics.width(text)
 
   def _onOkButtonClicked(self):
+    self.settings = qt.QSettings()
     for element in self._elements:
       if not element.property("modified"):
         continue
@@ -481,11 +556,11 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
       else:
         value = element.text
       attributeName = element.property("attributeName")
-      if not self.hasSetting(attributeName):
-        raise ValueError("QSetting attribute {}/{} does not exist".format(self.moduleName, attributeName))
-      if self.getSetting(attributeName) != value:
+      if not self.settings.contains(attributeName):
+        raise ValueError("QSetting attribute {} does not exist".format(attributeName))
+      if self.settings.value(attributeName) != value:
         logging.debug("Setting value %s for attribute %s" %(value, attributeName))
-        self.setSetting(attributeName, value)
+        self.settings.setValue(attributeName, value)
     self.close()
 
 
@@ -832,7 +907,7 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
 
 
 class BasicInformationWatchBox(qt.QGroupBox):
-  """ BasicInformationWatchBox can be used for displaying key:value pairs in a qt.QGroupBox.
+  """ BasicInformationWatchBox can be used for displaying basic information like patient name, birthday, but also other.
 
   Args:
     attributes (list): list of WatchBoxAttributes
@@ -1018,19 +1093,21 @@ class DICOMBasedInformationWatchBox(FileBasedInformationWatchBox):
 
 
 class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
-  """ Dialog for testing network connectivity specifically for DICOM reception
+  """ Dialog for testing network connectivity specifically for DICOM reception.
 
-  This dialog can be used to test the reception of DICOM data for a specific port. Once the start buttons is clicked
-  a temporary directory will be created under slicer.app.temporaryPath. Closing the dialog also will stop the DICOM
-  receiver (in case it's running) and the temporarily created directory will be deleted.
+  .. |pic1| image:: images/DICOMReceptionTestWidget_initial_status.png
+  .. |pic2| image:: images/DICOMReceptionTestWidget_waiting_status.png
+  .. |pic3| image:: images/DICOMReceptionTestWidget_success_status.png
 
-  Status color codes:
-    Red:
-      Initial status
-    Yellow:
-      DICOM receiver (storescp) started and waiting for incoming data
-    Green:
-      Success!
+  +--------+-----------+-----------+
+  | Initial|  Waiting  |  Success  |
+  +========+===========+===========+
+  | |pic1| |  |pic2|   |   |pic3|  |
+  +--------+-----------+-----------+
+
+  Can be used to test the reception of DICOM data on a specified port. Once the start buttons is clickeda temporary
+  directory will be created under slicer.app.temporaryPath. Closing the dialog  will stop the DICOM receiver (in case
+  it's running) and the temporarily created directory will be deleted.
 
   Args:
     incomingPort (str, optional): port on which DICOM data is expected to be received. Default: 11112
@@ -1045,7 +1122,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
 
   __Initial_Style = 'background-color: indianred; color: black;'
   __Waiting_Style = 'background-color: gold; color: black;'
-  __Success_Style = 'background-color: green; color: black;'
+  __Success_Style = 'background-color: green; color: white;'
 
   __Initial_Status_Text = "Not Running."
   __Success_Status_Text = "DICOM reception successfully tested!"
@@ -1119,6 +1196,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
   @vtk.calldata_type(vtk.VTK_STRING)
   def _onDICOMReceiverStatusChanged(self, caller, event, callData):
     self.statusEdit.setText(callData)
+    self.statusEdit.setStyleSheet(self.__Initial_Style)
 
   @vtk.calldata_type(vtk.VTK_INT)
   def _onFilesReceived(self, caller, event, count):
