@@ -431,6 +431,11 @@ class ModuleWidgetMixin(GeneralModuleMixin):
         setattr(progressIndicator, key, value)
     return progressIndicator
 
+  def _getMinimumTextWidth(self, text):
+    fm = qt.QFontMetrics(qt.QFont(text, 0))
+    width = fm.width(text)
+    return width
+
 
 class ModuleLogicMixin(GeneralModuleMixin):
 

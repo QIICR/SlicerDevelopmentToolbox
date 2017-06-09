@@ -568,6 +568,7 @@ class DimensionEditBase(qt.QWidget, ModuleWidgetMixin):
   """ Base class widget for two dimensional inputs."""
 
   ModifiedEvent = vtk.vtkCommand.UserEvent + 2324
+  """ Will be invoked whenever first or second dimension changes. """
 
   def __init__(self, first, second, parent=None):
     super(DimensionEditBase, self).__init__(parent)
@@ -648,9 +649,9 @@ class ExtendedQMessageBox(qt.QMessageBox):
 
   def __init__(self, parent= None):
     super(ExtendedQMessageBox, self).__init__(parent)
-    self.setupUI()
+    self.setup()
 
-  def setupUI(self):
+  def setup(self):
     self.checkbox = qt.QCheckBox("Remember the selection and do not notify again")
     self.layout().addWidget(self.checkbox, 1, 1)
 
@@ -802,12 +803,49 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     self.dicomSender = DICOMDirectorySender(directory, 'localhost', 11112)
 
 
-class RatingWindow(qt.QWidget, ModuleWidgetMixin):
+class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
+  """ Provides a qt.QMessageBox with a number of stars (equivalent to maximum value) for rating e.g. a result.
 
-  RatingWindowClosedEvent = vtk.vtkCommand.UserEvent + 304
+  .. image:: images/RatingMessageBox.png
+    :width: 40%
+
+  The number of stars is equivalent to the maximum rating value. Additionally there is a checkbox for preventing
+  the message box to be displayed again. The logic for not displaying it though needs to be implemented by the
+  user.
+
+  Args:
+
+    maximumValue (int): Maximum rating value
+    text (str, optional): Text to be displayed for the rating window.
+
+  .. code-block:: python
+    :caption: Display RatingMessageBox and invoke event once rating is done
+
+    import vtk
+
+    @vtk.calldata_type(vtk.VTK_INT)
+    def onRatingFinished(caller, event, ratingValue):
+      print "Rating finished with rating value %d" % ratingValue
+
+    def onRatingCanceled(caller, event):
+      print "Rating was canceled"
+
+    from SlicerDevelopmentToolboxUtils.widgets import RatingMessageBox
+
+    rating = RatingMessageBox(maximumValue=10)
+    rating.addEventObserver(rating.RatingFinishedEvent, onRatingFinished)
+    rating.addEventObserver(rating.RatingCanceledEvent, onRatingCanceled)
+    rating.show()
+  """
+
+  RatingCanceledEvent = vtk.vtkCommand.UserEvent + 303
+  """ Invoked when RatingMessageBox was closed without any rating. """
+  RatingFinishedEvent = vtk.vtkCommand.UserEvent + 304
+  """ Invoked once a rating value has been selected. """
 
   @property
   def maximumValue(self):
+    """ Maximum rating value. """
     return self._maximumValue
 
   @maximumValue.setter
@@ -817,93 +855,98 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
     else:
       self._maximumValue = value
 
-  def __init__(self, maximumValue, text="Please rate the registration result:", *args):
-    qt.QWidget.__init__(self, *args)
+  def __init__(self, maximumValue, text="Please rate the result", *args):
+    qt.QMessageBox.__init__(self, *args)
     self.maximumValue = maximumValue
     self.text = text
     self.iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
-    self.setupIcons()
-    self.setLayout(qt.QGridLayout())
-    self.setWindowFlags(qt.Qt.WindowStaysOnTopHint | qt.Qt.FramelessWindowHint)
-    self.setupElements()
-    self._connectButtons()
-    self.showRatingValue = True
+    self._setupIcons()
+    self._setup()
 
   def __del__(self):
-    super(RatingWindow, self).__del__()
-    self._disconnectButtons()
+    super(RatingMessageBox, self).__del__()
+    for button in self.buttons():
+      self._disconnectButton(button)
 
   def isRatingEnabled(self):
+    """ Returns if rating is enabled. Depends on the checkbox displayed within the widget.
+
+    Returns:
+      bool: checkbox 'Don't display this window again' is unchecked. By default it is unchecked so the return value
+      would be True.
+    """
     return not self.disableWidgetCheckbox.checked
 
-  def setupIcons(self):
+  def show(self):
+    """ Opens the window
+    """
+    self.ratingScore = None
+    self.ratingLabel.text = " "
+    qt.QMessageBox.show(self)
+
+  def reject(self):
+    """ Rejects rating and invokes RatingCanceledEvent. """
+    qt.QMessageBox.reject(self)
+
+  def closeEvent(self, event):
+    """ Is called when close button is pressed. Invokes RatingCanceledEvent. """
+    self.invokeEvent(self.RatingCanceledEvent)
+    qt.QMessageBox.closeEvent(self, event)
+    self.reject()
+
+  def _setupIcons(self):
     self.filledStarIcon = self.createIcon("icon-star-filled.png", self.iconPath)
     self.unfilledStarIcon = self.createIcon("icon-star-unfilled.png", self.iconPath)
 
-  def setupElements(self):
-    self.layout().addWidget(qt.QLabel(self.text), 0, 0)
-    self.ratingButtonGroup = qt.QButtonGroup()
+  def _setup(self):
     for rateValue in range(1, self.maximumValue+1):
-      attributeName = "button"+str(rateValue)
-      setattr(self, attributeName, self.createButton('', icon=self.unfilledStarIcon))
-      self.ratingButtonGroup.addButton(getattr(self, attributeName), rateValue)
-
-    for button in list(self.ratingButtonGroup.buttons()):
+      button = self.createButton('', icon=self.unfilledStarIcon)
+      button.setProperty('value', rateValue)
       button.setCursor(qt.Qt.PointingHandCursor)
+      button.installEventFilter(self)
+      self._connectButton(button)
+      self.addButton(button, qt.QMessageBox.AcceptRole)
 
-    self.ratingLabel = self.createLabel("")
-    row = self.createHLayout(list(self.ratingButtonGroup.buttons()) + [self.ratingLabel])
-    self.layout().addWidget(row, 1, 0)
+    self.ratingLabel = self.createLabel(" ")
+    width = self._getMinimumTextWidth(len(str(self.maximumValue))*" ")
+    self.ratingLabel.setFixedSize(width+12, 30)
+
+    row = self.createHLayout(list(self.buttons()) + [self.ratingLabel])
+    self.layout().addWidget(row, 2, 1)
 
     self.disableWidgetCheckbox = qt.QCheckBox("Don't display this window again")
     self.disableWidgetCheckbox.checked = False
-    self.layout().addWidget(self.disableWidgetCheckbox, 2, 0)
+    self.layout().addWidget(self.disableWidgetCheckbox, 4, 1)
 
-  def _connectButtons(self):
-    self.ratingButtonGroup.connect('buttonClicked(int)', self.onRatingButtonClicked)
-    for button in list(self.ratingButtonGroup.buttons()):
-      button.installEventFilter(self)
+  def _connectButton(self, button):
+    button.clicked.connect(lambda: self._onRatingButtonClicked(button.value))
 
-  def _disconnectButtons(self):
-    self.ratingButtonGroup.disconnect('buttonClicked(int)', self.onRatingButtonClicked)
-    for button in list(self.ratingButtonGroup.buttons()):
-      button.removeEventFilter(self)
-
-  def show(self, disableWidget=None):
-    self.disabledWidget = disableWidget
-    if disableWidget:
-      disableWidget.enabled = False
-    qt.QWidget.show(self)
-    self.ratingScore = None
+  def _disconnectButton(self, button):
+    button.clicked.disconnect(lambda: self._onRatingButtonClicked(button.value))
 
   def eventFilter(self, obj, event):
-    if obj in list(self.ratingButtonGroup.buttons()) and event.type() == qt.QEvent.HoverEnter:
+    if obj in self.buttons() and event.type() == qt.QEvent.HoverEnter:
       self._onHoverEvent(obj)
-    elif obj in list(self.ratingButtonGroup.buttons()) and event.type() == qt.QEvent.HoverLeave:
+    elif obj in self.buttons() and event.type() == qt.QEvent.HoverLeave:
       self._onLeaveEvent()
     return qt.QWidget.eventFilter(self, obj, event)
 
   def _onLeaveEvent(self):
-    for button in list(self.ratingButtonGroup.buttons()):
+    for button in self.buttons():
       button.icon = self.unfilledStarIcon
 
   def _onHoverEvent(self, obj):
     ratingValue = 0
-    for button in list(self.ratingButtonGroup.buttons()):
+    for button in self.buttons():
       button.icon = self.filledStarIcon
       ratingValue += 1
       if obj is button:
         break
-    if self.showRatingValue:
-      self.ratingLabel.setText(str(ratingValue))
+    self.ratingLabel.setText(str(ratingValue))
 
-  def onRatingButtonClicked(self, buttonId):
-    self.ratingScore = buttonId
-    if self.disabledWidget:
-      self.disabledWidget.enabled = True
-      self.disabledWidget = None
-    self.invokeEvent(self.RatingWindowClosedEvent, str(self.ratingScore))
-    self.hide()
+  def _onRatingButtonClicked(self, value):
+    self.ratingScore = value
+    self.invokeEvent(self.RatingFinishedEvent, self.ratingScore)
 
 
 class BasicInformationWatchBox(qt.QGroupBox):
@@ -1215,8 +1258,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
     self.statusEdit.setStyleSheet(self.__Initial_Style)
 
   def _onStatusEditTextChanged(self, text):
-    fm = qt.QFontMetrics(qt.QFont(text, 0))
-    width = fm.width(text)
+    width = self._getMinimumTextWidth(text)
     if width > self.statusEdit.width:
       self.statusEdit.setFixedSize(width+12, self.statusEdit.height) # border width: 2+2 and padding: 8 = 2+2+8=12
 
