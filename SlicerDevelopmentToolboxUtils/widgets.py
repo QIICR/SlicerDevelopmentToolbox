@@ -952,11 +952,49 @@ class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
 class BasicInformationWatchBox(qt.QGroupBox):
   """ BasicInformationWatchBox can be used for displaying basic information like patient name, birthday, but also other.
 
+  .. |bpw1| image:: images/BasicPatientWatchBox_one_colum.png
+  .. |bpw2| image:: images/BasicPatientWatchBox_two_colums.png
+  .. |bpw3| image:: images/BasicPatientWatchBox_three_colums.png
+
+  +-----------+---------------+-----------------+
+  | One column|  Two columns  |  Three columns  |
+  +===========+===============+=================+
+  |   |bpw1|  |     |bpw2|    |     |bpw3|      |
+  +-----------+---------------+-----------------+
+
   Args:
     attributes (list): list of WatchBoxAttributes
-    title (str,optional): text to be displayed in the upper left corner of the BasicInformationWatchBox
+    title (str, optional): text to be displayed in the upper left corner of the BasicInformationWatchBox
     parent (qt.QWidget, optional): parent of the button
     columns (int, optional): number of columns in which key/value pairs will be displayed
+
+  .. code-block:: python
+    :caption: Display some basic information about a patient
+
+    from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+    from SlicerDevelopmentToolboxUtils.widgets import BasicInformationWatchBox
+    from datetime import datetime
+
+    patientWatchBoxInformation = [WatchBoxAttribute('PatientName', 'Name: '),
+                                  WatchBoxAttribute('PatientID', 'PID: '),
+                                  WatchBoxAttribute('StudyDate', 'Study Date: ')]
+
+    patientWatchBox = BasicInformationWatchBox(patientWatchBoxInformation, title="Patient Information")
+    patientWatchBox.show()
+
+    patientWatchBox.setInformation('PatientName', 'Doe, John')
+    patientWatchBox.setInformation('PatientID', '12345')
+    patientWatchBox.setInformation('StudyDate', datetime.now().strftime("%Y_%m_%d"))
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.FileBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.XMLBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.DICOMBasedInformationWatchBox`
+
   """
 
   _DEFAULT_STYLE = 'background-color: rgb(230,230,230)'
@@ -1041,12 +1079,20 @@ class BasicInformationWatchBox(qt.QGroupBox):
 
 
 class FileBasedInformationWatchBox(BasicInformationWatchBox):
+  """ FileBasedInformationWatchBox is a base class for file based information that should be displayed in a watchbox
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.BasicInformationWatchBox`
+  """
 
   DEFAULT_TAG_VALUE_SEPARATOR = ": "
   DEFAULT_TAG_NAME_SEPARATOR = "_"
 
   @property
   def sourceFile(self):
+    """ Source file which information should be displayed in the watchbox. """
     self._sourceFile = getattr(self, "_sourceFile", None)
     return self._sourceFile
 
@@ -1069,6 +1115,11 @@ class FileBasedInformationWatchBox(BasicInformationWatchBox):
     return self.DEFAULT_TAG_VALUE_SEPARATOR.join(values)
 
   def updateInformation(self):
+    """ Forcing information to be updated from files.
+
+    If no callback is implemented for the attribute, the information will be updated from WatchBoxAttribute.
+
+    """
     for attribute in self.attributes:
       if attribute.callback:
         value = attribute.callback()
@@ -1077,12 +1128,50 @@ class FileBasedInformationWatchBox(BasicInformationWatchBox):
       self.setInformation(attribute.name, value, toolTip=value)
 
   def updateInformationFromWatchBoxAttribute(self, attribute):
+    """ This method implements the strategy how watchbox information are retrieve from files.
+
+    Note: This method needs to be implemented by inheriting classes.
+    """
     raise NotImplementedError
 
 
 class XMLBasedInformationWatchBox(FileBasedInformationWatchBox):
+  """ XMLBasedInformationWatchBox is based on xml file based information that should be displayed in a watchbox.
+
+  .. image:: images/XMLBasedInformationWatchBox.png
+
+  .. code-block:: python
+    :caption: Display information retrieved from a xml file
+
+    from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+    from SlicerDevelopmentToolboxUtils.widgets import XMLBasedInformationWatchBox
+    import os
+
+    watchBoxInformation = [WatchBoxAttribute('PatientName', 'Name:', 'PatientName'),
+                           WatchBoxAttribute('StudyDate', 'Study Date:', 'StudyDate'),
+                           WatchBoxAttribute('PatientID', 'PID:', 'PatientID'),
+                           WatchBoxAttribute('PatientBirthDate', 'DOB:', 'PatientBirthDate')]
+
+    informationWatchBox = XMLBasedInformationWatchBox(watchBoxInformation, columns=2)
+
+    informationWatchBox.sourceFile = os.path.join(os.path.dirname(slicer.util.modulePath("SlicerDevelopmentToolbox")),
+                                                  "doc", "data", "XMLBasedInformationWatchBoxTest.xml")
+    informationWatchBox.show()
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.FileBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.BasicInformationWatchBox`
+  """
 
   DATE_TAGS_TO_FORMAT = ["StudyDate", "PatientBirthDate", "SeriesDate", "ContentDate", "AcquisitionDate"]
+  """ A list of date attributes names as defined for every WatchBoxAttribute that needs to be formatted
+  
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+  """
 
   @FileBasedInformationWatchBox.sourceFile.setter
   def sourceFile(self, filePath):
@@ -1115,6 +1204,38 @@ class XMLBasedInformationWatchBox(FileBasedInformationWatchBox):
 
 
 class DICOMBasedInformationWatchBox(FileBasedInformationWatchBox):
+  """ DICOMBasedInformationWatchBox is based on information retrieved from DICOM that should be displayed in a watchbox.
+
+  .. image:: images/DICOMBasedInformationWatchBox.png
+
+  .. code-block:: python
+    :caption: Display information retrieved from a DICOM file
+
+    from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+    from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox
+    from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
+    import os
+
+    WatchBoxAttribute.TRUNCATE_LENGTH = 20
+    watchBoxInformation = [WatchBoxAttribute('PatientName', 'Name: ', DICOMTAGS.PATIENT_NAME),
+                           WatchBoxAttribute('PatientID', 'PID: ', DICOMTAGS.PATIENT_ID),
+                           WatchBoxAttribute('DOB', 'DOB: ', DICOMTAGS.PATIENT_BIRTH_DATE)]
+
+    informationWatchBox = DICOMBasedInformationWatchBox(watchBoxInformation, title="Patient Information")
+
+    filename = "1.3.6.1.4.1.43046.3.330964839400343291362242315939623549555"
+    informationWatchBox.sourceFile = os.path.join(os.path.dirname(slicer.util.modulePath("SlicerDevelopmentToolbox")),
+                                                  "doc", "data", filename)
+    informationWatchBox.show()
+
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.FileBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.BasicInformationWatchBox`
+  """
 
   DATE_TAGS_TO_FORMAT = [DICOMTAGS.STUDY_DATE, DICOMTAGS.PATIENT_BIRTH_DATE]
 
