@@ -810,7 +810,21 @@ class SliceAnnotation(object):
 
 
 class DICOMDirectorySender(DICOMProcess):
-  """ Code to send files/directories to a remote host (uses storescu from dcmtk)
+  """ Send files/directories to a remote host (uses storescu from dcmtk)
+
+  Args:
+    directory(str): source directory to send data from
+    address(str): destination address to send the data to
+    port(int): destination port to send the data to
+    progressCallback(function, optional): function that takes a string parameter. Default is None
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.helpers import SliceAnnotation
+
+    source = #any directory
+    dicomSender = DICOMDirectorySender(directory=source, address='localhost', port=11112)
+    dicomSender.send()
   """
 
   _STORESCU_PROCESS_FILE_NAME = "storescu"
@@ -822,7 +836,7 @@ class DICOMDirectorySender(DICOMProcess):
     self.port = port
     self.progressCallback = progressCallback
     if not self.progressCallback:
-      self.progressCallback = self.defaultProgressCallback
+      self.progressCallback = self._defaultProgressCallback
     self.send()
 
     self.storescuExecutable = os.path.join(self.exeDir, self._STORESCU_PROCESS_FILE_NAME + self.exeExtension)
@@ -837,23 +851,25 @@ class DICOMDirectorySender(DICOMProcess):
                                windowTitle=self.__class__.__name__, detailedText=str(stderr))
     return stdout, stderr
 
-  def defaultProgressCallback(self,s):
-    print(s)
-
   def send(self):
+    """ Starts the sending process """
     self.progressCallback("Starting send to %s:%s" % (self.address, self.port))
     self.start()
     self.progressCallback("Sent %s to %s:%s" % (self.directory, self.address, self.port))
 
   def start(self, cmd=None, args=None):
+    """ Starts storescup executable """
     self.storeSCUExecutable = os.path.join(self.exeDir, 'storescu'+self.exeExtension)
     # TODO: check pattern,,, .DS_Store exclusion
     args = [str(self.address), str(self.port), "-aec", "CTK", "--scan-directories", "--recurse", "--scan-pattern" ,
             "*[0-9a-Z]", self.directory]
     super(DICOMDirectorySender,self).start(self.storeSCUExecutable, args)
-    self.process.connect('readyReadStandardOutput()', self.readFromStandardOutput)
+    self.process.connect('readyReadStandardOutput()', self._readFromStandardOutput)
 
-  def readFromStandardOutput(self, readLineCallback=None):
+  def _defaultProgressCallback(self, s):
+    print(s)
+
+  def _readFromStandardOutput(self, readLineCallback=None):
     print('================ready to read stdout from %s===================' % self.__class__.__name__)
     while self.process.canReadLine():
       line = str(self.process.readLine())
@@ -861,9 +877,9 @@ class DICOMDirectorySender(DICOMProcess):
       if readLineCallback:
         readLineCallback(line)
     print('================end reading stdout from %s===================' % self.__class__.__name__)
-    self.readFromStandardError()
+    self._readFromStandardError()
 
-  def readFromStandardError(self):
+  def _readFromStandardError(self):
     stdErr = str(self.process.readAllStandardError())
     if stdErr:
       print('================ready to read stderr from %s===================' % self.__class__.__name__)
@@ -872,12 +888,35 @@ class DICOMDirectorySender(DICOMProcess):
 
 
 class WatchBoxAttribute(object):
+  """" A data structure for holding attribute information for displaying it within a BasicInformationWatchBox
+
+  Class members tags (e.g. xml or DICOM) and callback are helpful for file based watch boxes
+
+  Args:
+    name(str): Name of the attribute
+    title(str): Title to be displayed for the attribute
+    tags(str or list(str), optional): Tags to retrieve information from i.e. when XML or DICOM is used as source
+    masked(bool, optional): Enables the option to mask the displayed value for the attribute. Default is False
+    callback(function, optional): Callback to retrieve the actual value from. Default is None
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.BasicInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.FileBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.XMLBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.DICOMBasedInformationWatchBox`
+  """
 
   MASKED_PLACEHOLDER = "X"
+  """ Placeholder to display when masking is enabled to hide confidential information """
   TRUNCATE_LENGTH = None
+  """ Maximum length a text should have. In case it's longer it will be truncated """
 
   @property
   def title(self):
+    """ Title of the attribute to be displayed """
     return self.titleLabel.text
 
   @title.setter
@@ -886,6 +925,7 @@ class WatchBoxAttribute(object):
 
   @property
   def masked(self):
+    """ Returns if masking is enabled."""
     return self._masked
 
   @masked.setter
@@ -897,6 +937,11 @@ class WatchBoxAttribute(object):
 
   @property
   def value(self):
+    """ Value of the attribute to be displayed.
+
+    Note:
+      This value can be masked
+      """
     return self.valueLabel.text
 
   @value.setter
@@ -910,6 +955,7 @@ class WatchBoxAttribute(object):
 
   @property
   def originalValue(self):
+    """ Original value of the attribute """
     return self._value
 
   @originalValue.setter
@@ -928,15 +974,42 @@ class WatchBoxAttribute(object):
     self.value = None
 
   def updateVisibleValues(self, value):
+    """ Updates the v"""
     self.valueLabel.text = value[0:self.TRUNCATE_LENGTH]+"..." if self.TRUNCATE_LENGTH and \
                                                                   len(value) > self.TRUNCATE_LENGTH else value
     self.valueLabel.toolTip = value
 
   def maskedValue(self, value):
+    """ Replacing the original value for displaying with MASKED_PLACEHOLDER
+
+    Args:
+      value(str): value that should get masked and returned
+    Returns:
+     str:
+    """
     return self.MASKED_PLACEHOLDER * len(value)
 
 
 class WindowLevelEffect(object):
+  """ Enables windowing on a certain slice widget with respect to the opacity of foreground and background
+
+  Windowing is applied to foreground if opacity is higher than 0.5. Otherwise windowing will be applied to the
+  background
+
+  Args:
+    sliceWidget(qMRMLSliceWidget): slice widget to enabled the effect for
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.helpers import WindowLevelEffect
+
+    redWidget = slicer.app.layoutManager().sliceWidget("Red")
+    windowLevelEffect = WindowLevelEffect(redWidget)
+    windowLevelEffect.enable()
+
+    # windowLevelEffect.disable()
+
+  """
 
   def __init__(self, sliceWidget):
     self.__actionState = None
@@ -976,9 +1049,7 @@ class WindowLevelEffect(object):
     return qt.QCursor(qt.QIcon(pixmap).pixmap(32, 32), 0, 0)
 
   def _processEvent(self, caller=None, event=None):
-    """
-    handle events from the render window interactor
-    """
+    """ handle events from the render window interactor """
     bgLayer = self._sliceLogic.GetBackgroundLayer()
     fgLayer = self._sliceLogic.GetForegroundLayer()
 
@@ -1036,8 +1107,7 @@ class WindowLevelEffect(object):
     vDisplay.Modified()
 
   def _abortEvent(self, event):
-    """Set the AbortFlag on the vtkCommand associated
-    with the event - causes other things listening to the
+    """Set the AbortFlag on the vtkCommand associated with the event - causes other things listening to the
     interactor not to receive the events"""
     # TODO: make interactorObserverTags a map to we can
     # explicitly abort just the event we handled - it will
