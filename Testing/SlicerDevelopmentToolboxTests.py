@@ -6,7 +6,7 @@ import time
 
 from multiprocessing.dummy import Pool as ThreadPool
 
-from SlicerDevelopmentToolboxUtils.helpers import DirectoryWatcher
+from SlicerDevelopmentToolboxUtils.helpers import DirectoryObserver
 from SlicerDevelopmentToolboxUtils.mixins import ModuleLogicMixin
 
 from SampleData import SampleDataLogic
@@ -22,7 +22,7 @@ class DirectoryWatcherTest(unittest.TestCase, ModuleLogicMixin):
     cls.tempDir = slicer.app.temporaryPath
     cls.watchedDirectory = os.path.join(cls.tempDir, "SlicerDevelopmentToolboxTesting", cls.__class__.__name__)
     cls.createDirectory(cls.watchedDirectory)
-    cls.watcher = DirectoryWatcher(cls.watchedDirectory)
+    cls.watcher = DirectoryObserver(cls.watchedDirectory)
     cls.sampleDataLogic = SampleDataLogic()
 
     cls.startedEventEmitted = False
@@ -39,9 +39,9 @@ class DirectoryWatcherTest(unittest.TestCase, ModuleLogicMixin):
     self.test_DirectoryWatcherStop()
 
   def test_DirectoryWatcherEvents(self):
-    self.watcher.addEventObserver(self.watcher.StartedWatchingEvent,
+    self.watcher.addEventObserver(self.watcher.StartedEvent,
                                   lambda event,caller:setattr(self, "startedEventEmitted", True))
-    self.watcher.addEventObserver(self.watcher.StoppedWatchingEvent,
+    self.watcher.addEventObserver(self.watcher.StoppedEvent,
                                   lambda event,caller:setattr(self, "stoppedEventEmitted", True))
     self.watcher.start()
     self.watcher.stop()
@@ -54,7 +54,7 @@ class DirectoryWatcherTest(unittest.TestCase, ModuleLogicMixin):
     self.assertTrue(self.watcher.isRunning())
 
   def test_DirectoryWatcherFileCountChanged(self):
-    self.watcher.addEventObserver(self.watcher.IncomingFileCountChangedEvent,
+    self.watcher.addEventObserver(self.watcher.FileCountChangedEvent,
                                   lambda event,caller,callData:setattr(self, "fileCountChangedEmitted", True))
     mrHead = self.sampleDataLogic.sourceForSampleName('MRHead')
     self.sampleDataLogic.downloadFile(mrHead.uris[0], self.tempDir, mrHead.fileNames[0])

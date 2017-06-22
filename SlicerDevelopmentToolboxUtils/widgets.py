@@ -128,8 +128,8 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   DEFAULT_CREATE_FIDUCIALS_TEXT = "Place Target(s)"
   DEFAULT_MODIFY_FIDUCIALS_TEXT = "Modify Target(s)"
 
-  TargetingStartedEvent = vtk.vtkCommand.UserEvent + 335
-  TargetingFinishedEvent = vtk.vtkCommand.UserEvent + 336
+  StartedEvent = SlicerDevelopmentToolboxEvents.StartedEvent
+  FinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent
   TargetSelectedEvent = vtk.vtkCommand.UserEvent + 337
 
   @property
@@ -268,8 +268,8 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
       return
     if self._selectionNode.GetActivePlaceNodeID() == self.currentNode.GetID():
       interactionMode = self._interactionNode.GetCurrentInteractionMode()
-      self.invokeEvent(self.TargetingStartedEvent if interactionMode == self._interactionNode.Place else
-                       self.TargetingFinishedEvent)
+      self.invokeEvent(self.StartedEvent if interactionMode == self._interactionNode.Place else
+                       self.FinishedEvent)
       self._updateButtons()
 
   def _onFiducialListSelected(self, node):
@@ -682,7 +682,7 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     from SlicerDevelopmentToolboxUtils.widgets import IncomingDataWindow
 
     window = IncomingDataWindow(slicer.app.temporaryPath)
-    window.addEventObserver(window.IncomingDataReceiveFinishedEvent, onReceptionFinished)
+    window.addEventObserver(window.FinishedEvent, onReceptionFinished)
     window.show()
 
     # receive data on port 11112 and wait for slot to be called
@@ -691,11 +691,11 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
 
   """
 
-  IncomingDataSkippedEvent = SlicerDevelopmentToolboxEvents.IncomingDataSkippedEvent
+  SkippedEvent = SlicerDevelopmentToolboxEvents.SkippedEvent
   """Invoked when skip button was used"""
-  IncomingDataCanceledEvent = SlicerDevelopmentToolboxEvents.IncomingDataCanceledEvent
+  CanceledEvent = SlicerDevelopmentToolboxEvents.CanceledEvent
   """Invoked when cancel button was used"""
-  IncomingDataReceiveFinishedEvent = SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent
+  FinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent
   """Invoked when reception has finished"""
 
   def __init__(self, incomingDataDirectory, incomingPort=None, title="Receiving image data", skipText="Skip",
@@ -780,24 +780,24 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     self.directoryImportButton.directorySelected.connect(self._onImportDirectorySelected)
 
   def _setupDICOMReceiver(self, incomingDataDirectory):
-    self.dicomReceiver = SmartDICOMReceiver(incomingDataDirectory=incomingDataDirectory,
+    self.dicomReceiver = SmartDICOMReceiver(destinationDirectory=incomingDataDirectory,
                                             incomingPort=self.incomingPort)
     self.dicomReceiver.addEventObserver(self.dicomReceiver.StatusChangedEvent, self._onStatusChanged)
     self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingDataReceiveFinishedEvent, self._onReceptionFinished)
-    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingFileCountChangedEvent, self._onReceivingData)
+    self.dicomReceiver.addEventObserver(self.dicomReceiver.FileCountChangedEvent, self._onReceivingData)
 
   def _onButtonClicked(self, button):
     self.hide()
     if button is self.skipButton:
-      self.invokeEvent(self.IncomingDataSkippedEvent)
+      self.invokeEvent(self.SkippedEvent)
     else:
-      self.invokeEvent(self.IncomingDataCanceledEvent)
+      self.invokeEvent(self.CanceledEvent)
       if self.dicomSender:
         self.dicomSender.stop()
 
   def _onReceptionFinished(self, caller, event):
     self.hide()
-    self.invokeEvent(self.IncomingDataReceiveFinishedEvent)
+    self.invokeEvent(self.FinishedEvent)
 
   def _onImportDirectorySelected(self, directory):
     self.dicomSender = DICOMDirectorySender(directory, 'localhost', 11112)
@@ -833,14 +833,14 @@ class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     from SlicerDevelopmentToolboxUtils.widgets import RatingMessageBox
 
     rating = RatingMessageBox(maximumValue=10)
-    rating.addEventObserver(rating.RatingFinishedEvent, onRatingFinished)
-    rating.addEventObserver(rating.RatingCanceledEvent, onRatingCanceled)
+    rating.addEventObserver(rating.FinishedEvent, onRatingFinished)
+    rating.addEventObserver(rating.CanceledEvent, onRatingCanceled)
     rating.show()
   """
 
-  RatingCanceledEvent = vtk.vtkCommand.UserEvent + 303
+  CanceledEvent = SlicerDevelopmentToolboxEvents.CanceledEvent
   """ Invoked when RatingMessageBox was closed without any rating. """
-  RatingFinishedEvent = vtk.vtkCommand.UserEvent + 304
+  FinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent
   """ Invoked once a rating value has been selected. """
 
   @property
@@ -885,12 +885,12 @@ class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     qt.QMessageBox.show(self)
 
   def reject(self):
-    """ Rejects rating and invokes RatingCanceledEvent. """
+    """ Rejects rating and invokes CanceledEvent. """
     qt.QMessageBox.reject(self)
 
   def closeEvent(self, event):
-    """ Is called when close button is pressed. Invokes RatingCanceledEvent. """
-    self.invokeEvent(self.RatingCanceledEvent)
+    """ Is called when close button is pressed. Invokes CanceledEvent. """
+    self.invokeEvent(self.CanceledEvent)
     qt.QMessageBox.closeEvent(self, event)
     self.reject()
 
@@ -946,7 +946,7 @@ class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
 
   def _onRatingButtonClicked(self, value):
     self.ratingScore = value
-    self.invokeEvent(self.RatingFinishedEvent, self.ratingScore)
+    self.invokeEvent(self.FinishedEvent, self.ratingScore)
 
 
 class BasicInformationWatchBox(qt.QGroupBox):
@@ -1291,7 +1291,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
   __Initial_Status_Text = "Not Running."
   __Success_Status_Text = "DICOM reception successfully tested!"
 
-  DICOMReceptionSuccessfulEvent = vtk.vtkCommand.UserEvent + 101
+  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
 
   def __init__(self, incomingPort="11112", parent=None):
     qt.QDialog.__init__(self, parent)
@@ -1353,7 +1353,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
     ModuleLogicMixin.createDirectory(directory)
     self.__dicomReceiver = SmartDICOMReceiver(directory, self.incomingPortSpinBox.value)
     self.__dicomReceiver.addEventObserver(SmartDICOMReceiver.StatusChangedEvent, self._onDICOMReceiverStatusChanged)
-    self.__dicomReceiver.addEventObserver(SmartDICOMReceiver.IncomingFileCountChangedEvent, self._onFilesReceived)
+    self.__dicomReceiver.addEventObserver(SmartDICOMReceiver.FileCountChangedEvent, self._onFilesReceived)
     self.__dicomReceiver.start()
     self.statusEdit.setStyleSheet(self.__Waiting_Style)
 
@@ -1367,7 +1367,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
     self._onStopButtonClicked()
     self.statusEdit.setText(self.__Success_Status_Text)
     self.statusEdit.setStyleSheet(self.__Success_Style)
-    self.invokeEvent(self.DICOMReceptionSuccessfulEvent)
+    self.invokeEvent(self.SuccessEvent)
 
   def _onStopButtonClicked(self):
     self.startButton.enabled = True

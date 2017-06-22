@@ -296,7 +296,7 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     view.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
     return view, model
 
-  def setBackgroundToVolumeID(self, volume, clearLabels=True):
+  def setBackgroundToVolumeID(self, volume, clearLabels=True, showLabelOutline=False):
     for widget in self.getAllVisibleWidgets():
       compositeNode = widget.mrmlSliceCompositeNode()
       if clearLabels:
@@ -305,6 +305,7 @@ class ModuleWidgetMixin(GeneralModuleMixin):
       compositeNode.SetBackgroundVolumeID(volume.GetID() if volume else None)
       sliceNode = widget.sliceLogic().GetSliceNode()
       sliceNode.RotateToVolumePlane(volume)
+      sliceNode.SetUseLabelOutline(showLabelOutline)
 
   def createIcon(self, filename, iconPath=None):
     if not iconPath:

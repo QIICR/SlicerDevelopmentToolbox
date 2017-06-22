@@ -147,6 +147,13 @@ class RedSliceLayoutButton(LayoutButton):
   Args:
     text (str, optional): text to be displayed for the button
     parent (qt.QWidget, optional): parent of the button
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.buttons import RedSliceLayoutButton
+
+    button = RedSliceLayoutButton()
+    button.show()
   """
 
   _ICON_FILENAME = 'LayoutOneUpRedSliceView.png'
@@ -163,6 +170,13 @@ class FourUpLayoutButton(LayoutButton):
   Args:
     text (str, optional): text to be displayed for the button
     parent (qt.QWidget, optional): parent of the button
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.buttons import FourUpLayoutButton
+
+    button = FourUpLayoutButton()
+    button.show()
   """
 
   _ICON_FILENAME = 'LayoutFourUpView.png'
@@ -179,6 +193,13 @@ class FourUpTableViewLayoutButton(LayoutButton):
   Args:
     text (str, optional): text to be displayed for the button
     parent (qt.QWidget, optional): parent of the button
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.buttons import FourUpTableViewLayoutButton
+
+    button = FourUpTableViewLayoutButton()
+    button.show()
   """
 
   _ICON_FILENAME = 'LayoutFourUpTableView.png'
@@ -195,6 +216,13 @@ class SideBySideLayoutButton(LayoutButton):
   Args:
     text (str, optional): text to be displayed for the button
     parent (qt.QWidget, optional): parent of the button
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.buttons import SideBySideLayoutButton
+
+    button = SideBySideLayoutButton()
+    button.show()
   """
 
   _ICON_FILENAME = 'LayoutSideBySideView.png'
@@ -216,12 +244,21 @@ class CrosshairButton(CheckableIconButton, ParameterNodeObservationMixin):
     CursorPositionModifiedEvent (slicer.vtkMRMLCrosshairNode.CursorPositionModifiedEvent)
     _DEFAULT_CROSSHAIR_MODE (enum): defining the crosshair display mode (see referenced web page)
 
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.buttons import CrosshairButton
+
+    button = CrosshairButton()
+    button.show()
+
   See Also: http://apidocs.slicer.org/master/classvtkMRMLCrosshairNode.html
 
   """
 
+  CursorPositionModifiedEvent = slicer.vtkMRMLCrosshairNode.CursorPositionModifiedEvent
+  """ Invoked whenever crosshair is enabled and cursor position changes """
+
   _ICON_FILENAME = 'SlicesCrosshair.png'
-  CursorPositionModifiedEvent = SlicerDevelopmentToolboxEvents.CursorPositionModifiedEvent
   _DEFAULT_CROSSHAIR_MODE = slicer.vtkMRMLCrosshairNode.ShowSmallBasic
 
   @property
@@ -304,6 +341,14 @@ class WindowLevelEffectsButton(CheckableIconButton, ModuleWidgetMixin):
 
   Note: If no sliceWidgets has been specified while instantiation, all visible qMRMLSliceWidget will be observed and
   on layout changes updated.
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.buttons import WindowLevelEffectsButton
+
+    button = WindowLevelEffectsButton()
+    button.show()
+
   """
 
   _ICON_FILENAME = 'icon-WindowLevelEffect.png'
