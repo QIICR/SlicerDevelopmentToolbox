@@ -691,9 +691,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
   @multimethod(slicer.vtkMRMLScalarVolumeNode, [str, unicode], [str, unicode])
   def getDICOMValue(volumeNode, tag, default):
     try:
-      currentFile = volumeNode.GetStorageNode().GetFileName()
+      if volumeNode.GetStorageNode():
+        currentFile = volumeNode.GetStorageNode().GetFileName()
+      else:
+        currentFile = slicer.dicomDatabase.fileForInstance(volumeNode.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
       return ModuleLogicMixin.getDICOMValue(currentFile, tag, default)
-    except (RuntimeError, AttributeError):
+    except (RuntimeError, AttributeError, KeyError):
       logging.info("There are problems with accessing DICOM value %s from volume node %s" % (tag, volumeNode.GetID()))
     return default
 
