@@ -1,19 +1,18 @@
 import datetime
+import logging
+import os
+import sys
 import xml.dom
 
+import ctk
 import qt
 import slicer
 import vtk
-import os
-import sys
-import ctk
-import logging
-
 from constants import DICOMTAGS
+from decorators import singleton
 from events import SlicerDevelopmentToolboxEvents
 from helpers import SmartDICOMReceiver, DICOMDirectorySender
 from mixins import ModuleWidgetMixin, ModuleLogicMixin
-from decorators import singleton
 
 
 @singleton
@@ -95,64 +94,71 @@ class CustomStatusProgressbar(qt.QWidget):
 
 
 class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
+  """ TargetCreationWidget is an exclusive QWidget for creating targets/fiducials
 
-  """
-  Example code:
-  
-  import ast
-  import vtk
-  
-  @vtk.calldata_type(vtk.VTK_STRING)
-  def onTargetSelected(caller, event, callData):
-    info = ast.literal_eval(callData)
-    node = slicer.mrmlScene.GetNodeByID(info["nodeID"])
-    index = info["index"]
-    print node
-    print "%s clicked" % node.GetNthFiducialLabel(index)
-    
-    
-  from SlicerDevelopmentToolboxUtils.widgets import *
-  t = TargetCreationWidget()
-  t.targetListSelectorVisible = True
-  t.addEventObserver(t.TargetSelectedEvent, onTargetSelected)
-  t.show()
+  .. image:: images/TargetCreationWidget.gif
+
+  Args:
+
+    parent (qt.QWidget, optional): parent of the widget
+
+  .. doctest::
+
+    import ast
+    import vtk
+
+    @vtk.calldata_type(vtk.VTK_STRING)
+    def onTargetSelected(caller, event, callData):
+      info = ast.literal_eval(callData)
+      node = slicer.mrmlScene.GetNodeByID(info["nodeID"])
+      index = info["index"]
+      print "%s clicked" % node.GetNthFiducialLabel(index)
+
+
+    from SlicerDevelopmentToolboxUtils.widgets import TargetCreationWidget
+    t = TargetCreationWidget()
+    t.targetListSelectorVisible = True
+    t.addEventObserver(t.TargetSelectedEvent, onTargetSelected)
+    t.show()
   """
 
-  HEADERS = ["Name","Delete"]
-  MODIFIED_EVENT = "ModifiedEvent"
-  FIDUCIAL_LIST_OBSERVED_EVENTS = [MODIFIED_EVENT]
+  _HEADERS = ["Name", "Delete"]
 
   DEFAULT_FIDUCIAL_LIST_NAME = None
   DEFAULT_CREATE_FIDUCIALS_TEXT = "Place Target(s)"
   DEFAULT_MODIFY_FIDUCIALS_TEXT = "Modify Target(s)"
 
-  TargetingStartedEvent = vtk.vtkCommand.UserEvent + 335
-  TargetingFinishedEvent = vtk.vtkCommand.UserEvent + 336
+  StartedEvent = SlicerDevelopmentToolboxEvents.StartedEvent
+  FinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent
   TargetSelectedEvent = vtk.vtkCommand.UserEvent + 337
-
-  ICON_SIZE = qt.QSize(24, 24)
 
   @property
   def currentNode(self):
+    """ Property for getting/setting current vtkMRMLMarkupsFiducialNode.
+
+    currentNode represents the vtkMRMLMarkupsFiducialNode which is used for displaying/creating fiducials/targets.
+    """
     return self.targetListSelector.currentNode()
 
   @currentNode.setter
   def currentNode(self, node):
     if self._currentNode:
-      self.removeTargetListObservers()
+      self.stopPlacing()
+      self._removeTargetListObservers()
     self.targetListSelector.setCurrentNode(node)
     self._currentNode = node
     if node:
-      self.addTargetListObservers()
-      self.selectionNode.SetReferenceActivePlaceNodeID(node.GetID())
+      self._addTargetListObservers()
+      self._selectionNode.SetReferenceActivePlaceNodeID(node.GetID())
     else:
-      self.selectionNode.SetReferenceActivePlaceNodeID(None)
+      self._selectionNode.SetReferenceActivePlaceNodeID(None)
 
-    self.updateButtons()
-    self.updateTable()
+    self._updateButtons()
+    self._updateTable()
 
   @property
   def targetListSelectorVisible(self):
+    """ Property for changing visibility of target list selector """
     return self.targetListSelectorArea.visible
 
   @targetListSelectorVisible.setter
@@ -161,38 +167,65 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
   def __init__(self, parent=None, **kwargs):
     qt.QWidget.__init__(self, parent)
-    self.iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
+    self._iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
     self._processKwargs(**kwargs)
-    self.connectedButtons = []
-    self.fiducialNodeObservers = []
-    self.selectionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSelectionNodeSingleton")
-    self.interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-    self.setupIcons()
-    self.setup()
+    self._connectedButtons = []
+    self._modifiedEventObserverTag = None
+    self._selectionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSelectionNodeSingleton")
+    self._interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+    self._setupIcons()
+    self._setup()
     self._currentNode = None
-    self.setupConnections()
-
-  def _processKwargs(self, **kwargs):
-    for key, value in kwargs.iteritems():
-      if hasattr(self, key):
-        setattr(self, key, value)
 
   def reset(self):
+    """ exits the fiducial/target placement mode and sets the currently observed vtkMRMLMarkupsFiducialNode to None
+    """
     self.stopPlacing()
     self.currentNode = None
 
-  def setupIcons(self):
-    self.setTargetsIcon = self.createIcon("icon-addFiducial.png", self.iconPath)
-    self.modifyTargetsIcon = self.createIcon("icon-modifyFiducial.png", self.iconPath)
-    self.finishIcon = self.createIcon("icon-apply.png", self.iconPath)
+  def startPlacing(self):
+    """ Enters the fiducial/target placement mode. """
+    if not self.currentNode:
+      self._createNewFiducialNode(name=self.DEFAULT_FIDUCIAL_LIST_NAME)
+    self._selectionNode.SetReferenceActivePlaceNodeID(self.currentNode.GetID())
+    self._interactionNode.SetPlaceModePersistence(1)
+    self._interactionNode.SetCurrentInteractionMode(self._interactionNode.Place)
 
-  def setup(self):
+  def stopPlacing(self):
+    """ Exits the fiducial/target placement mode.
+    """
+    self._interactionNode.SetCurrentInteractionMode(self._interactionNode.ViewTransform)
+
+  def getOrCreateFiducialNode(self):
+    """ Convenience method for getting (or creating if it doesn't exist) current vtkMRMLMarkupsFiducialNode"""
+    if not self.currentNode:
+      self.currentNode = self.targetListSelector.addNode()
+    return self.currentNode
+
+  def hasTargetListAtLeastOneTarget(self):
+    """ Returns if currently observed vtkMRMLMarkupsFiducialNode has at least one fiducial
+
+    Returns:
+      bool: True if vtkMRMLMarkupsFiducialNode is not None and number of fiducials in vtkMRMLMarkupsFiducialNode is
+      unequal zero, False otherwise
+
+    """
+    return self.currentNode is not None and self.currentNode.GetNumberOfFiducials() > 0
+
+  def _setupIcons(self):
+    self._iconSize = qt.QSize(24, 24)
+    self.addTargetsIcon = self.createIcon("icon-addFiducial.png", self._iconPath)
+    self.modifyTargetsIcon = self.createIcon("icon-modifyFiducial.png", self._iconPath)
+    self.finishTargetingIcon = self.createIcon("icon-apply.png", self._iconPath)
+
+  def _setup(self):
     self.setLayout(qt.QGridLayout())
-    self.setupTargetFiducialListSelector()
-    self.setupTargetTable()
-    self.setupButtons()
+    self._setupTargetFiducialListSelector()
+    self._setupTargetTable()
+    self._setupButtons()
+    self._setupConnections()
 
-  def setupTargetFiducialListSelector(self):
+  def _setupTargetFiducialListSelector(self):
     self.targetListSelector = self.createComboBox(nodeTypes=["vtkMRMLMarkupsFiducialNode", ""], addEnabled=True,
                                                   removeEnabled=True, noneEnabled=True, showChildNodeTypes=False,
                                                   selectNodeUponCreation=True, toolTip="Select target list")
@@ -200,98 +233,80 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.targetListSelectorArea.hide()
     self.layout().addWidget(self.targetListSelectorArea)
 
-  def setupTargetTable(self):
+  def _setupTargetTable(self):
     self.table = qt.QTableWidget(0, 2)
     self.table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
     self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
     self.table.setMaximumHeight(200)
     self.table.horizontalHeader().setStretchLastSection(True)
-    self.resetTable()
+    self._resetTable()
     self.layout().addWidget(self.table)
 
-  def setupButtons(self):
-    self.startTargetingButton = self.createButton("", enabled=True, icon=self.setTargetsIcon, iconSize=self.ICON_SIZE,
+  def _setupButtons(self):
+    self.startTargetingButton = self.createButton("", enabled=True, icon=self.addTargetsIcon, iconSize=self._iconSize,
                                                   toolTip="Start placing targets")
-    self.stopTargetingButton = self.createButton("", enabled=False, icon=self.finishIcon, iconSize=self.ICON_SIZE,
+    self.stopTargetingButton = self.createButton("", enabled=False, icon=self.finishTargetingIcon, iconSize=self._iconSize,
                                                  toolTip="Finish placing targets")
     self.buttons = self.createHLayout([self.startTargetingButton, self.stopTargetingButton])
     self.layout().addWidget(self.buttons)
 
-  def setupConnections(self):
+  def _setupConnections(self):
     self.startTargetingButton.clicked.connect(self.startPlacing)
     self.stopTargetingButton.clicked.connect(self.stopPlacing)
-    self.interactionNodeObserver = self.interactionNode.AddObserver(self.interactionNode.InteractionModeChangedEvent,
-                                                                    self.onInteractionModeChanged)
-    self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onFiducialListSelected)
-    self.table.connect("cellChanged (int,int)", self.onCellChanged)
-    self.table.connect('clicked(QModelIndex)', self.onTargetSelectionChanged)
+    self.interactionNodeObserver = self._interactionNode.AddObserver(self._interactionNode.InteractionModeChangedEvent,
+                                                                     self._onInteractionModeChanged)
+    self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self._onFiducialListSelected)
+    self.table.connect("cellChanged(int,int)", self._onCellChanged)
+    self.table.connect('clicked(QModelIndex)', self._onTargetSelectionChanged)
 
-  def onTargetSelectionChanged(self, modelIndex):
+  def _onTargetSelectionChanged(self, modelIndex):
     self.invokeEvent(self.TargetSelectedEvent, str({"nodeID": self.currentNode.GetID(),
                                                     "index": modelIndex.row()}))
 
-  def onInteractionModeChanged(self, caller, event):
+  def _onInteractionModeChanged(self, caller, event):
     if not self.currentNode:
       return
-    if self.selectionNode.GetActivePlaceNodeID() == self.currentNode.GetID():
-      interactionMode = self.interactionNode.GetCurrentInteractionMode()
-      self.invokeEvent(self.TargetingStartedEvent if interactionMode == self.interactionNode.Place else
-                       self.TargetingFinishedEvent)
-      self.updateButtons()
+    if self._selectionNode.GetActivePlaceNodeID() == self.currentNode.GetID():
+      interactionMode = self._interactionNode.GetCurrentInteractionMode()
+      self.invokeEvent(self.StartedEvent if interactionMode == self._interactionNode.Place else
+                       self.FinishedEvent)
+      self._updateButtons()
 
-  def onFiducialListSelected(self, node):
+  def _onFiducialListSelected(self, node):
     self.currentNode = node
 
-  def startPlacing(self):
-    if not self.currentNode:
-      self.createNewFiducialNode(name=self.DEFAULT_FIDUCIAL_LIST_NAME)
-    self.selectionNode.SetReferenceActivePlaceNodeID(self.currentNode.GetID())
-    self.interactionNode.SetPlaceModePersistence(1)
-    self.interactionNode.SetCurrentInteractionMode(self.interactionNode.Place)
-
-  def stopPlacing(self):
-    self.interactionNode.SetCurrentInteractionMode(self.interactionNode.ViewTransform)
-
-  def createNewFiducialNode(self, name=None):
+  def _createNewFiducialNode(self, name=None):
     markupsLogic = slicer.modules.markups.logic()
     self.currentNode = slicer.mrmlScene.GetNodeByID(markupsLogic.AddNewFiducialNode())
     self.currentNode.SetName(name if name else self.currentNode.GetName())
 
-  def resetTable(self):
-    self.cleanupButtons()
-    self.table.setRowCount(0)
-    self.table.clear()
-    self.table.setHorizontalHeaderLabels(self.HEADERS)
+  def _cleanupButtons(self):
+    for button in self._connectedButtons:
+      button.clicked.disconnect(self._handleDeleteButtonClicked)
+    self._connectedButtons = []
 
-  def cleanupButtons(self):
-    for button in self.connectedButtons:
-      button.clicked.disconnect(self.handleDeleteButtonClicked)
-    self.connectedButtons = []
+  def _removeTargetListObservers(self):
+    if self.currentNode and self._modifiedEventObserverTag:
+      self._modifiedEventObserverTag = self.currentNode.RemoveObserver(self._modifiedEventObserverTag)
 
-  def removeTargetListObservers(self):
-    if self.currentNode and len(self.fiducialNodeObservers) > 0:
-      for observer in self.fiducialNodeObservers:
-        self.currentNode.RemoveObserver(observer)
-    self.fiducialNodeObservers = []
-
-  def addTargetListObservers(self):
+  def _addTargetListObservers(self):
+    self._removeTargetListObservers()
     if self.currentNode:
-      for event in self.FIDUCIAL_LIST_OBSERVED_EVENTS:
-        self.fiducialNodeObservers.append(self.currentNode.AddObserver(event, self.onFiducialsUpdated))
+      self._modifiedEventObserverTag = self.currentNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self._onFiducialsUpdated)
 
-  def updateButtons(self):
+  def _updateButtons(self):
     if not self.currentNode or self.currentNode.GetNumberOfFiducials() == 0:
-      self.startTargetingButton.icon = self.setTargetsIcon
+      self.startTargetingButton.icon = self.addTargetsIcon
       self.startTargetingButton.toolTip = "Place Target(s)"
     else:
       self.startTargetingButton.icon = self.modifyTargetsIcon
       self.startTargetingButton.toolTip = "Modify Target(s)"
-    interactionMode = self.interactionNode.GetCurrentInteractionMode()
-    self.startTargetingButton.enabled = not interactionMode == self.interactionNode.Place
-    self.stopTargetingButton.enabled = interactionMode == self.interactionNode.Place
+    interactionMode = self._interactionNode.GetCurrentInteractionMode()
+    self.startTargetingButton.enabled = not interactionMode == self._interactionNode.Place
+    self.stopTargetingButton.enabled = interactionMode == self._interactionNode.Place
 
-  def updateTable(self):
-    self.resetTable()
+  def _updateTable(self):
+    self._resetTable()
     if not self.currentNode:
       return
     nOfControlPoints = self.currentNode.GetNumberOfFiducials()
@@ -303,51 +318,92 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
       self.table.setItem(i, 0, cellLabel)
       self._addDeleteButton(i, 1)
 
+  def _resetTable(self):
+    self._cleanupButtons()
+    self.table.setRowCount(0)
+    self.table.clear()
+    self.table.setHorizontalHeaderLabels(self._HEADERS)
+
   def _addDeleteButton(self, row, col):
     button = qt.QPushButton('X')
     self.table.setCellWidget(row, col, button)
-    button.clicked.connect(lambda: self.handleDeleteButtonClicked(row))
-    self.connectedButtons.append(button)
+    button.clicked.connect(lambda: self._handleDeleteButtonClicked(row))
+    self._connectedButtons.append(button)
 
-  def handleDeleteButtonClicked(self, idx):
-    if slicer.util.confirmYesNoDisplay("Do you really want to delete fiducial %s?"
-                                               % self.currentNode.GetNthFiducialLabel(idx), windowTitle="mpReview"):
+  def _handleDeleteButtonClicked(self, idx):
+    if slicer.util.confirmYesNoDisplay("Do you really want to delete target %s?"
+                                         % self.currentNode.GetNthFiducialLabel(idx)):
       self.currentNode.RemoveMarkup(idx)
 
-  def onFiducialsUpdated(self, caller, event):
-    if caller.IsA("vtkMRMLMarkupsFiducialNode") and event == self.MODIFIED_EVENT:
-      self.updateTable()
-      self.updateButtons()
+  def _onFiducialsUpdated(self, caller, event):
+    if caller.IsA("vtkMRMLMarkupsFiducialNode") and event == "ModifiedEvent":
+      self._updateTable()
+      self._updateButtons()
       self.invokeEvent(vtk.vtkCommand.ModifiedEvent)
 
-  def onCellChanged(self, row, col):
+  def _onCellChanged(self, row, col):
     if col == 0:
       self.currentNode.SetNthFiducialLabel(row, self.table.item(row, col).text())
 
-  def getOrCreateFiducialNode(self):
-    node = self.targetListSelector.currentNode()
-    if not node:
-      node = self.targetListSelector.addNode()
-    return node
-
-  def hasTargetListAtLeastOneTarget(self):
-    return self.currentNode is not None and self.currentNode.GetNumberOfFiducials() > 0
-
 
 class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
+  """ QMessageBox for displaying qt.QSettings defined for module 'moduleName'.
 
-  def getSettingNames(self):
-    return [s.replace(self.moduleName+"/", "") for s in list(qt.QSettings().allKeys()) if str.startswith(str(s),
-                                                                                                         self.moduleName)]
+  Normally Settings are defined in groups e.g. DICOM/{subgroup(optional)}/{settingsName}
 
-  def __init__(self, moduleName, parent=None, **kwargs):
-    self.moduleName = moduleName
-    self.elements = []
+  .. image:: images/SettingsMessageBox.png
+    :width: 50%
+
+  Args:
+    moduleNames (list, optional):
+      name of the module(s) which qt.QSettings you want to view/modify
+      if None, all available subgroups from qt.QSettings will be setup in tabs
+    parent (qt.QWidget, optional):
+      parent of the widget
+
+  .. code-block:: python
+    :caption: Display settings for MORE THAN ONE module/group
+
+    from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox
+    s = SettingsMessageBox(moduleNames=['Developer', 'DICOM'])
+    s.show()
+
+  .. code-block:: python
+    :caption: Display settings for ONE module/group
+
+    from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox
+    s = SettingsMessageBox(moduleNames='DICOM')
+    s.show()
+
+  .. code-block:: python
+    :caption: Display settings for ALL available modules/groups
+
+    from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox
+    s = SettingsMessageBox() # displays all available settings that are in groups
+    s.show()
+
+  See Also: :paramref:`SlicerDevelopmentToolboxUtils.buttons.ModuleSettingsButton`
+  """
+
+  def __init__(self, moduleNames=None, parent=None, **kwargs):
+    self.moduleNames = [moduleNames] if type(moduleNames) is str else moduleNames
     qt.QMessageBox.__init__(self, parent, **kwargs)
-    self.setup()
+    self._setup()
     self.adjustSize()
 
-  def setup(self):
+  def cleanup(self):
+    """Cleans up the 'old' settings groupbox"""
+    if getattr(self, "settingGroupBox", None):
+      self.settingsTabWidget.setParent(None)
+      del self.settingsTabWidget
+
+  def show(self):
+    """ Displays the settings QMessageBox... All necessary ui components will be build depending on the settings type.
+    """
+    self._createUIFromSettings()
+    qt.QMessageBox.show(self)
+
+  def _setup(self):
     self.setLayout(qt.QGridLayout())
     self.okButton = self.createButton("OK")
     self.cancelButton = self.createButton("Cancel")
@@ -356,65 +412,118 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     self.addButton(self.cancelButton, qt.QMessageBox.NoRole)
 
     self.layout().addWidget(self.createHLayout([self.okButton, self.cancelButton]), 1, 1, 1, 2)
-    self.okButton.clicked.connect(self.onOkButtonClicked)
+    self.okButton.clicked.connect(self._onOkButtonClicked)
 
-  def createUIFromSettings(self):
-    if getattr(self, "settingGroupBox", None):
-      self.settingGroupBox.setParent(None)
-      del self.settingGroupBox
-    self.settingGroupBox = qt.QGroupBox()
-    self.settingGroupBox.setStyleSheet("QGroupBox{border:0;}")
-    self.settingGroupBox.setLayout(qt.QGridLayout())
-    self.elements = []
-    for index, setting in enumerate(self.getSettingNames()):
-      label = self.createLabel(setting)
-      value = self.getSetting(setting)
+  def _createUIFromSettings(self):
+    self.cleanup()
+    self._elements = []
+    self.settings = qt.QSettings()
+    self.settingsTabWidget = qt.QTabWidget()
+    moduleNames = self.moduleNames if self.moduleNames and len(self.moduleNames) else self._getSettingGroups()
+    for moduleName in moduleNames:
+      self._addModuleTab(moduleName)
+    self.layout().addWidget(self.settingsTabWidget, 0, 1, 1, 2)
 
-      if isinstance(value, tuple) or isinstance(value, list):
-        element = qt.QListWidget()
-        element.setProperty("type", type(value))
-        map(element.addItem, value)
-      elif isinstance(value, qt.QSize) or isinstance(value, qt.QPoint):
-        if isinstance(value, qt.QSize):
-          element = SizeEdit(value.width(), value.height())
-        else:
-          element = PointEdit(value.x(), value.y())
-        element.setProperty("type", type(value))
-        element.addEventObserver(element.ModifiedEvent, lambda caller, event, e=element: self._onAttributeModified(e))
+  def _addModuleTab(self, moduleName):
+    tabWidget = qt.QFrame()
+    tabWidget.setLayout(qt.QFormLayout())
+    self.settingsTabWidget.addTab(tabWidget, moduleName)
+    self._addSettingsGroup(moduleName, tabWidget)
+
+  def _addSettingsGroup(self, name, parent):
+    widget = qt.QFrame() if isinstance(parent, qt.QFrame) else qt.QGroupBox(name)
+    widget.setLayout(qt.QFormLayout())
+
+    self.settings.beginGroup(name)
+    for setting in self._getSettingAttributes():
+      self._addSettingsAttribute(widget, setting)
+    for groupName in self._getSettingGroups():
+      self._addSettingsGroup(groupName, widget.layout())
+    self.settings.endGroup()
+
+    parentLayout = parent.layout()
+    if isinstance(parentLayout, qt.QHBoxLayout):
+      parentLayout.addWidget(widget)
+    else:
+      parentLayout.addRow(widget)
+
+  def _getSettingAttributes(self):
+    separator = "/"
+    return filter(lambda x: separator not in x, self.settings.allKeys())
+
+  def _getSettingGroups(self):
+    separator = "/"
+    groups = set()
+    for subgroup in filter(lambda x: separator in x, self.settings.allKeys()):
+      groups.add(subgroup.split(separator)[0])
+    return groups
+
+  def _addSettingsAttribute(self, groupBox, setting):
+    value = self.settings.value(setting)
+    group = self.settings.group() + "/" if self.settings.group() else ""
+    if isinstance(value, tuple) or isinstance(value, list):
+      element = qt.QListWidget()
+      element.setProperty("type", type(value))
+      map(element.addItem, value)
+    elif isinstance(value, qt.QSize) or isinstance(value, qt.QPoint):
+      element = self._createDimensionalElement(value)
+    elif isinstance(value, qt.QByteArray):
+      logging.debug("Skipping %s which is a QByteArray" % group+setting)
+      return
+    else:
+      value = str(value)
+      if value.lower() in ["true", "false"]:
+        element = self._createCheckBox(value)
+      elif value.isdigit():
+        element = self._createSpinBox(value)
+      elif os.path.exists(value):
+        element = self._createPathLineEdit(value)
       else:
-        value = str(value)
-        if value.lower() in ["true", "false"]:
-          element = qt.QCheckBox()
-          element.checked = value.lower() == "true"
-          element.toggled.connect(lambda enabled, e=element: self._onAttributeModified(e))
-        elif value.isdigit():
-          element = qt.QSpinBox()
-          element.value = int(value)
-          element.valueChanged.connect(lambda newVal, e=element: self._onAttributeModified(e))
-        elif os.path.exists(value):
-          element = ctk.ctkPathLineEdit()
-          if os.path.isdir(value):
-            element.filters = ctk.ctkPathLineEdit.Dirs
-          else:
-            element.filters = ctk.ctkPathLineEdit.Files
-          element.currentPath = value
-          element.currentPathChanged.connect(lambda path, e=element: self._onAttributeModified(e))
-        else:
-          element = self.createLineEdit(value)
-          element.minimumWidth = self._getMinimumTextWidth(element.text) + 10
-          element.textChanged.connect(lambda text, e=element: self._onAttributeModified(e))
+        element = self._createLineEdit(value)
+    if element:
+      element.setProperty("modified", False)
+      element.setProperty("attributeName", group+setting)
+      groupBox.layout().addRow(setting, element)
+      self._elements.append(element)
 
-      if element:
-        element.setProperty("modified", False)
-        element.setProperty("attributeName", label.text)
-        self.settingGroupBox.layout().addWidget(label, index, 0)
-        self.settingGroupBox.layout().addWidget(element, index, 1, 1, qt.QSizePolicy.ExpandFlag)
-        self.elements.append(element)
-    self.layout().addWidget(self.settingGroupBox, 0, 1, 1, 2)
+  def _createDimensionalElement(self, value):
+    if isinstance(value, qt.QSize):
+      dimElement = SizeEdit(value.width(), value.height())
+    else:
+      dimElement = PointEdit(value.x(), value.y())
+    dimElement.setProperty("type", type(value))
+    dimElement.addEventObserver(dimElement.ModifiedEvent, lambda caller, event, e=dimElement: self._onAttributeModified(e))
+    return dimElement
 
-  def show(self):
-    self.createUIFromSettings()
-    qt.QWidget.show(self)
+  def _createLineEdit(self, value):
+    lineEdit = self.createLineEdit(value, toolTip=value)
+    lineEdit.minimumWidth = self._getMinimumTextWidth(lineEdit.text) + 10
+    lineEdit.textChanged.connect(lambda text, e=lineEdit: self._onAttributeModified(e))
+    return lineEdit
+
+  def _createPathLineEdit(self, value):
+    pathLineEdit = ctk.ctkPathLineEdit()
+    if os.path.isdir(value):
+      pathLineEdit.filters = ctk.ctkPathLineEdit.Dirs
+    else:
+      pathLineEdit.filters = ctk.ctkPathLineEdit.Files
+    pathLineEdit.currentPath = value
+    pathLineEdit.toolTip =value
+    pathLineEdit.currentPathChanged.connect(lambda path, e=pathLineEdit: self._onAttributeModified(e))
+    return pathLineEdit
+
+  def _createSpinBox(self, value):
+    spinbox = qt.QSpinBox()
+    spinbox.setMaximum(999999)
+    spinbox.value = int(value)
+    spinbox.valueChanged.connect(lambda newVal, e=spinbox: self._onAttributeModified(e))
+    return spinbox
+
+  def _createCheckBox(self, value):
+    checkbox = qt.QCheckBox()
+    checkbox.checked = value.lower() == "true"
+    checkbox.toggled.connect(lambda enabled, e=checkbox: self._onAttributeModified(e))
+    return checkbox
 
   def _onAttributeModified(self, element):
     element.setProperty("modified", True)
@@ -424,8 +533,9 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     metrics = qt.QFontMetrics(font)
     return metrics.width(text)
 
-  def onOkButtonClicked(self):
-    for element in self.elements:
+  def _onOkButtonClicked(self):
+    self.settings = qt.QSettings()
+    for element in self._elements:
       if not element.property("modified"):
         continue
       if isinstance(element, qt.QCheckBox):
@@ -446,24 +556,26 @@ class SettingsMessageBox(qt.QMessageBox, ModuleWidgetMixin):
       else:
         value = element.text
       attributeName = element.property("attributeName")
-      if not self.hasSetting(attributeName):
-        raise ValueError("QSetting attribute {}/{} does not exist".format(self.moduleName, attributeName))
-      if self.getSetting(attributeName) != value:
+      if not self.settings.contains(attributeName):
+        raise ValueError("QSetting attribute {} does not exist".format(attributeName))
+      if self.settings.value(attributeName) != value:
         logging.debug("Setting value %s for attribute %s" %(value, attributeName))
-        self.setSetting(attributeName, value)
+        self.settings.setValue(attributeName, value)
     self.close()
 
 
 class DimensionEditBase(qt.QWidget, ModuleWidgetMixin):
+  """ Base class widget for two dimensional inputs."""
 
   ModifiedEvent = vtk.vtkCommand.UserEvent + 2324
+  """ Will be invoked whenever first or second dimension changes. """
 
   def __init__(self, first, second, parent=None):
     super(DimensionEditBase, self).__init__(parent)
-    self.setup(first, second)
-    self.setupConnections()
+    self._setup(first, second)
+    self._setupConnections()
 
-  def setup(self, first, second):
+  def _setup(self, first, second):
     self.setLayout(qt.QHBoxLayout())
     self.firstDimension = qt.QSpinBox()
     self.firstDimension.maximum = 9999
@@ -474,18 +586,20 @@ class DimensionEditBase(qt.QWidget, ModuleWidgetMixin):
     self.layout().addWidget(self.firstDimension)
     self.layout().addWidget(self.secondDimension)
 
-  def setupConnections(self):
-    self.firstDimension.valueChanged.connect(self.onValueChanged)
-    self.secondDimension.valueChanged.connect(self.onValueChanged)
+  def _setupConnections(self):
+    self.firstDimension.valueChanged.connect(self._onValueChanged)
+    self.secondDimension.valueChanged.connect(self._onValueChanged)
 
-  def onValueChanged(self, value):
+  def _onValueChanged(self, value):
     self.invokeEvent(self.ModifiedEvent)
 
 
 class SizeEdit(DimensionEditBase):
+  """ Widget representing a spinbox for width and another for height."""
 
   @property
   def width(self):
+    """horizontal extent"""
     return self.firstDimension.value
 
   @width.setter
@@ -494,6 +608,7 @@ class SizeEdit(DimensionEditBase):
 
   @property
   def height(self):
+    """vertical extent"""
     return self.secondDimension.value
 
   @height.setter
@@ -505,9 +620,11 @@ class SizeEdit(DimensionEditBase):
 
 
 class PointEdit(DimensionEditBase):
+  """ Widget for displaying two dimensional position. One spinbox for x and another for y."""
 
   @property
   def x(self):
+    """x position"""
     return self.firstDimension.value
 
   @x.setter
@@ -516,6 +633,7 @@ class PointEdit(DimensionEditBase):
 
   @property
   def y(self):
+    """y position"""
     return self.secondDimension.value
 
   @y.setter
@@ -527,12 +645,13 @@ class PointEdit(DimensionEditBase):
 
 
 class ExtendedQMessageBox(qt.QMessageBox):
+  """ QMessageBox which is extended by an additional checkbox for remembering selection without notifying again."""
 
   def __init__(self, parent= None):
     super(ExtendedQMessageBox, self).__init__(parent)
-    self.setupUI()
+    self.setup()
 
-  def setupUI(self):
+  def setup(self):
     self.checkbox = qt.QCheckBox("Remember the selection and do not notify again")
     self.layout().addWidget(self.checkbox, 1, 1)
 
@@ -541,19 +660,55 @@ class ExtendedQMessageBox(qt.QMessageBox):
 
 
 class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
+  """ Reception/import window for DICOM data into a specified directory sent via storescu or from a selected directory.
 
-  def __init__(self, incomingDataDirectory, title="Receiving image data",
-               skipText="Skip", cancelText="Cancel", *args):
+  Besides running a DICOM receiver via storescp in the background, the operator also can choose to import recursively
+  from a directory. Once reception has finished, the window will automatically be hidden.
+
+  Note: The used port for incoming DICOM data is '11112'
+
+  Args:
+    incomingDataDirectory (str): directory where the received DICOM files will be stored
+    incomingPort (str, optional): port on which DICOM images are expected to be received
+    title (str, optional): window title
+    skipText (str, optional): text to be displayed for the skip button
+    cancelText (str, optional): text to be displayed for the cancel button
+
+  .. doctest::
+
+    def onReceptionFinished(caller, event):
+      print "Reception finished"
+
+    from SlicerDevelopmentToolboxUtils.widgets import IncomingDataWindow
+
+    window = IncomingDataWindow(slicer.app.temporaryPath)
+    window.addEventObserver(window.FinishedEvent, onReceptionFinished)
+    window.show()
+
+    # receive data on port 11112 and wait for slot to be called
+
+  See Also: :paramref:`SlicerDevelopmentToolboxUtils.helpers.SmartDICOMReceiver`
+
+  """
+
+  SkippedEvent = SlicerDevelopmentToolboxEvents.SkippedEvent
+  """Invoked when skip button was used"""
+  CanceledEvent = SlicerDevelopmentToolboxEvents.CanceledEvent
+  """Invoked when cancel button was used"""
+  FinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent
+  """Invoked when reception has finished"""
+
+  def __init__(self, incomingDataDirectory, incomingPort=None, title="Receiving image data", skipText="Skip",
+               cancelText="Cancel", *args):
     super(IncomingDataWindow, self).__init__(*args)
     self.setWindowTitle(title)
     self.setWindowFlags(qt.Qt.CustomizeWindowHint | qt.Qt.WindowTitleHint | qt.Qt.WindowStaysOnTopHint)
     self.skipButtonText = skipText
     self.cancelButtonText = cancelText
-    self.setup()
-    self.dicomReceiver = SmartDICOMReceiver(incomingDataDirectory=incomingDataDirectory)
-    self.dicomReceiver.addEventObserver(self.dicomReceiver.StatusChangedEvent, self.onStatusChanged)
-    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingDataReceiveFinishedEvent, self.onReceiveFinished)
-    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingFileCountChangedEvent, self.onReceivingData)
+    self.incomingPort = incomingPort
+    self._setup()
+    self._setupConnections()
+    self._setupDICOMReceiver(incomingDataDirectory)
     self.dicomSender = None
 
   def __del__(self):
@@ -562,15 +717,20 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
       self.dicomReceiver.removeEventObservers()
 
   @vtk.calldata_type(vtk.VTK_STRING)
-  def onStatusChanged(self, caller, event, callData):
+  def _onStatusChanged(self, caller, event, callData):
     self.textLabel.text = callData
 
   @vtk.calldata_type(vtk.VTK_INT)
-  def onReceivingData(self, caller, event, callData):
+  def _onReceivingData(self, caller, event, callData):
     self.skipButton.enabled = False
     self.directoryImportButton.enabled = False
 
   def show(self, disableWidget=None):
+    """ Opens the window and starts the DICOM reception process
+
+    Args:
+      disableWidget (qt.QWidget, optional): widget that needs to get disabled once IncomingDataWindow opens
+    """
     self.disabledWidget = disableWidget
     if disableWidget:
       disableWidget.enabled = False
@@ -578,13 +738,15 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     self.dicomReceiver.start()
 
   def hide(self):
+    """ Closes the window, stops the DICOM reception process, and enables the widget that has been disabled (optional)
+    """
     if self.disabledWidget:
       self.disabledWidget.enabled = True
       self.disabledWidget = None
     qt.QWidget.hide(self)
     self.dicomReceiver.stop()
 
-  def setup(self):
+  def _setup(self):
     self.setLayout(qt.QGridLayout())
     self.statusLabel = qt.QLabel("Status:")
     self.textLabel = qt.QLabel()
@@ -613,35 +775,77 @@ class IncomingDataWindow(qt.QWidget, ModuleWidgetMixin):
     for b in [self.skipButton, self.cancelButton, self.directoryImportButton]:
       b.minimumHeight = buttonHeight
 
-    self.setupConnections()
+  def _setupConnections(self):
+    self.buttonGroup.connect('buttonClicked(QAbstractButton*)', self._onButtonClicked)
+    self.directoryImportButton.directorySelected.connect(self._onImportDirectorySelected)
 
-  def setupConnections(self):
-    self.buttonGroup.connect('buttonClicked(QAbstractButton*)', self.onButtonClicked)
-    self.directoryImportButton.directorySelected.connect(self.onImportDirectorySelected)
+  def _setupDICOMReceiver(self, incomingDataDirectory):
+    self.dicomReceiver = SmartDICOMReceiver(destinationDirectory=incomingDataDirectory,
+                                            incomingPort=self.incomingPort)
+    self.dicomReceiver.addEventObserver(self.dicomReceiver.StatusChangedEvent, self._onStatusChanged)
+    self.dicomReceiver.addEventObserver(self.dicomReceiver.IncomingDataReceiveFinishedEvent, self._onReceptionFinished)
+    self.dicomReceiver.addEventObserver(self.dicomReceiver.FileCountChangedEvent, self._onReceivingData)
 
-  def onButtonClicked(self, button):
+  def _onButtonClicked(self, button):
     self.hide()
     if button is self.skipButton:
-      self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataSkippedEvent)
+      self.invokeEvent(self.SkippedEvent)
     else:
-      self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataCanceledEvent)
+      self.invokeEvent(self.CanceledEvent)
       if self.dicomSender:
         self.dicomSender.stop()
 
-  def onReceiveFinished(self, caller, event):
+  def _onReceptionFinished(self, caller, event):
     self.hide()
-    self.invokeEvent(SlicerDevelopmentToolboxEvents.IncomingDataReceiveFinishedEvent)
+    self.invokeEvent(self.FinishedEvent)
 
-  def onImportDirectorySelected(self, directory):
+  def _onImportDirectorySelected(self, directory):
     self.dicomSender = DICOMDirectorySender(directory, 'localhost', 11112)
 
 
-class RatingWindow(qt.QWidget, ModuleWidgetMixin):
+class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
+  """ Provides a qt.QMessageBox with a number of stars (equivalent to maximum value) for rating e.g. a result.
 
-  RatingWindowClosedEvent = vtk.vtkCommand.UserEvent + 304
+  .. image:: images/RatingMessageBox.png
+    :width: 40%
+
+  The number of stars is equivalent to the maximum rating value. Additionally there is a checkbox for preventing
+  the message box to be displayed again. The logic for not displaying it though needs to be implemented by the
+  user.
+
+  Args:
+
+    maximumValue (int): Maximum rating value
+    text (str, optional): Text to be displayed for the rating window.
+
+  .. code-block:: python
+    :caption: Display RatingMessageBox and invoke event once rating is done
+
+    import vtk
+
+    @vtk.calldata_type(vtk.VTK_INT)
+    def onRatingFinished(caller, event, ratingValue):
+      print "Rating finished with rating value %d" % ratingValue
+
+    def onRatingCanceled(caller, event):
+      print "Rating was canceled"
+
+    from SlicerDevelopmentToolboxUtils.widgets import RatingMessageBox
+
+    rating = RatingMessageBox(maximumValue=10)
+    rating.addEventObserver(rating.FinishedEvent, onRatingFinished)
+    rating.addEventObserver(rating.CanceledEvent, onRatingCanceled)
+    rating.show()
+  """
+
+  CanceledEvent = SlicerDevelopmentToolboxEvents.CanceledEvent
+  """ Invoked when RatingMessageBox was closed without any rating. """
+  FinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent
+  """ Invoked once a rating value has been selected. """
 
   @property
   def maximumValue(self):
+    """ Maximum rating value. """
     return self._maximumValue
 
   @maximumValue.setter
@@ -651,118 +855,181 @@ class RatingWindow(qt.QWidget, ModuleWidgetMixin):
     else:
       self._maximumValue = value
 
-  def __init__(self, maximumValue, text="Please rate the registration result:", *args):
-    qt.QWidget.__init__(self, *args)
+  def __init__(self, maximumValue, text="Please rate the result", *args):
+    qt.QMessageBox.__init__(self, *args)
     self.maximumValue = maximumValue
     self.text = text
     self.iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
-    self.setupIcons()
-    self.setLayout(qt.QGridLayout())
-    self.setWindowFlags(qt.Qt.WindowStaysOnTopHint | qt.Qt.FramelessWindowHint)
-    self.setupElements()
-    self._connectButtons()
-    self.showRatingValue = True
+    self._setupIcons()
+    self._setup()
 
   def __del__(self):
-    super(RatingWindow, self).__del__()
-    self._disconnectButtons()
+    super(RatingMessageBox, self).__del__()
+    for button in self.buttons():
+      self._disconnectButton(button)
 
   def isRatingEnabled(self):
+    """ Returns if rating is enabled. Depends on the checkbox displayed within the widget.
+
+    Returns:
+      bool: checkbox 'Don't display this window again' is unchecked. By default it is unchecked so the return value
+      would be True.
+    """
     return not self.disableWidgetCheckbox.checked
 
-  def setupIcons(self):
+  def show(self):
+    """ Opens the window
+    """
+    self.ratingScore = None
+    self.ratingLabel.text = " "
+    qt.QMessageBox.show(self)
+
+  def reject(self):
+    """ Rejects rating and invokes CanceledEvent. """
+    qt.QMessageBox.reject(self)
+
+  def closeEvent(self, event):
+    """ Is called when close button is pressed. Invokes CanceledEvent. """
+    self.invokeEvent(self.CanceledEvent)
+    qt.QMessageBox.closeEvent(self, event)
+    self.reject()
+
+  def _setupIcons(self):
     self.filledStarIcon = self.createIcon("icon-star-filled.png", self.iconPath)
     self.unfilledStarIcon = self.createIcon("icon-star-unfilled.png", self.iconPath)
 
-  def setupElements(self):
-    self.layout().addWidget(qt.QLabel(self.text), 0, 0)
-    self.ratingButtonGroup = qt.QButtonGroup()
+  def _setup(self):
     for rateValue in range(1, self.maximumValue+1):
-      attributeName = "button"+str(rateValue)
-      setattr(self, attributeName, self.createButton('', icon=self.unfilledStarIcon))
-      self.ratingButtonGroup.addButton(getattr(self, attributeName), rateValue)
-
-    for button in list(self.ratingButtonGroup.buttons()):
+      button = self.createButton('', icon=self.unfilledStarIcon)
+      button.setProperty('value', rateValue)
       button.setCursor(qt.Qt.PointingHandCursor)
+      button.installEventFilter(self)
+      self._connectButton(button)
+      self.addButton(button, qt.QMessageBox.AcceptRole)
 
-    self.ratingLabel = self.createLabel("")
-    row = self.createHLayout(list(self.ratingButtonGroup.buttons()) + [self.ratingLabel])
-    self.layout().addWidget(row, 1, 0)
+    self.ratingLabel = self.createLabel(" ")
+    width = self._getMinimumTextWidth(len(str(self.maximumValue))*" ")
+    self.ratingLabel.setFixedSize(width+12, 30)
+
+    row = self.createHLayout(list(self.buttons()) + [self.ratingLabel])
+    self.layout().addWidget(row, 2, 1)
 
     self.disableWidgetCheckbox = qt.QCheckBox("Don't display this window again")
     self.disableWidgetCheckbox.checked = False
-    self.layout().addWidget(self.disableWidgetCheckbox, 2, 0)
+    self.layout().addWidget(self.disableWidgetCheckbox, 4, 1)
 
-  def _connectButtons(self):
-    self.ratingButtonGroup.connect('buttonClicked(int)', self.onRatingButtonClicked)
-    for button in list(self.ratingButtonGroup.buttons()):
-      button.installEventFilter(self)
+  def _connectButton(self, button):
+    button.clicked.connect(lambda: self._onRatingButtonClicked(button.value))
 
-  def _disconnectButtons(self):
-    self.ratingButtonGroup.disconnect('buttonClicked(int)', self.onRatingButtonClicked)
-    for button in list(self.ratingButtonGroup.buttons()):
-      button.removeEventFilter(self)
-
-  def show(self, disableWidget=None):
-    self.disabledWidget = disableWidget
-    if disableWidget:
-      disableWidget.enabled = False
-    qt.QWidget.show(self)
-    self.ratingScore = None
+  def _disconnectButton(self, button):
+    button.clicked.disconnect(lambda: self._onRatingButtonClicked(button.value))
 
   def eventFilter(self, obj, event):
-    if obj in list(self.ratingButtonGroup.buttons()) and event.type() == qt.QEvent.HoverEnter:
+    if obj in self.buttons() and event.type() == qt.QEvent.HoverEnter:
       self._onHoverEvent(obj)
-    elif obj in list(self.ratingButtonGroup.buttons()) and event.type() == qt.QEvent.HoverLeave:
+    elif obj in self.buttons() and event.type() == qt.QEvent.HoverLeave:
       self._onLeaveEvent()
     return qt.QWidget.eventFilter(self, obj, event)
 
   def _onLeaveEvent(self):
-    for button in list(self.ratingButtonGroup.buttons()):
+    for button in self.buttons():
       button.icon = self.unfilledStarIcon
 
   def _onHoverEvent(self, obj):
     ratingValue = 0
-    for button in list(self.ratingButtonGroup.buttons()):
+    for button in self.buttons():
       button.icon = self.filledStarIcon
       ratingValue += 1
       if obj is button:
         break
-    if self.showRatingValue:
-      self.ratingLabel.setText(str(ratingValue))
+    self.ratingLabel.setText(str(ratingValue))
 
-  def onRatingButtonClicked(self, buttonId):
-    self.ratingScore = buttonId
-    if self.disabledWidget:
-      self.disabledWidget.enabled = True
-      self.disabledWidget = None
-    self.invokeEvent(self.RatingWindowClosedEvent, str(self.ratingScore))
-    self.hide()
+  def _onRatingButtonClicked(self, value):
+    self.ratingScore = value
+    self.invokeEvent(self.FinishedEvent, self.ratingScore)
 
 
 class BasicInformationWatchBox(qt.QGroupBox):
+  """ BasicInformationWatchBox can be used for displaying basic information like patient name, birthday, but also other.
 
-  DEFAULT_STYLE = 'background-color: rgb(230,230,230)'
-  PREFERRED_DATE_FORMAT = "%Y-%b-%d"
+  .. |bpw1| image:: images/BasicPatientWatchBox_one_colum.png
+  .. |bpw2| image:: images/BasicPatientWatchBox_two_colums.png
+  .. |bpw3| image:: images/BasicPatientWatchBox_three_colums.png
+
+  +-----------+---------------+-----------------+
+  | One column|  Two columns  |  Three columns  |
+  +===========+===============+=================+
+  |   |bpw1|  |     |bpw2|    |     |bpw3|      |
+  +-----------+---------------+-----------------+
+
+  Args:
+    attributes (list): list of WatchBoxAttributes
+    title (str, optional): text to be displayed in the upper left corner of the BasicInformationWatchBox
+    parent (qt.QWidget, optional): parent of the button
+    columns (int, optional): number of columns in which key/value pairs will be displayed
+
+  .. code-block:: python
+    :caption: Display some basic information about a patient
+
+    from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+    from SlicerDevelopmentToolboxUtils.widgets import BasicInformationWatchBox
+    from datetime import datetime
+
+    patientWatchBoxInformation = [WatchBoxAttribute('PatientName', 'Name: '),
+                                  WatchBoxAttribute('PatientID', 'PID: '),
+                                  WatchBoxAttribute('StudyDate', 'Study Date: ')]
+
+    patientWatchBox = BasicInformationWatchBox(patientWatchBoxInformation, title="Patient Information")
+    patientWatchBox.show()
+
+    patientWatchBox.setInformation('PatientName', 'Doe, John')
+    patientWatchBox.setInformation('PatientID', '12345')
+    patientWatchBox.setInformation('StudyDate', datetime.now().strftime("%Y_%m_%d"))
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.FileBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.XMLBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.DICOMBasedInformationWatchBox`
+
+  """
+
+  _DEFAULT_STYLE = 'background-color: rgb(230,230,230)'
+  _dateFormat = "%Y-%b-%d"
+
+  @staticmethod
+  def _formatPatientName(name):
+    if name != "":
+      splitted = name.split('^')
+      try:
+        name = splitted[1] + ", " + splitted[0]
+      except IndexError:
+        name = splitted[0]
+    return name
 
   def __init__(self, attributes, title="", parent=None, columns=1):
     super(BasicInformationWatchBox, self).__init__(title, parent)
     self.attributes = attributes
     self.columns = columns
-    if not self.checkAttributeUniqueness():
+    if not self._checkAttributeUniqueness():
       raise ValueError("Attribute names are not unique.")
-    self.setup()
-
-  def checkAttributeUniqueness(self):
-    onlyNames = [attribute.name for attribute in self.attributes]
-    return len(self.attributes) == len(set(onlyNames))
+    self._setup()
 
   def reset(self):
+    """ Sets all values (not keys) to ''
+    """
     for attribute in self.attributes:
       attribute.value = ""
 
-  def setup(self):
-    self.setStyleSheet(self.DEFAULT_STYLE)
+  def _checkAttributeUniqueness(self):
+    onlyNames = [attribute.name for attribute in self.attributes]
+    return len(self.attributes) == len(set(onlyNames))
+
+  def _setup(self):
+    self.setStyleSheet(self._DEFAULT_STYLE)
     layout = qt.QGridLayout()
     self.setLayout(layout)
 
@@ -772,11 +1039,18 @@ class BasicInformationWatchBox(qt.QGroupBox):
       layout.addWidget(attribute.valueLabel, index/self.columns, column*2+1, 1, qt.Qt.AlignLeft)
       column = column+1 if column<self.columns-1 else 0
 
-  def getAttribute(self, name):
-    for attribute in self.attributes:
-      if attribute.name == name:
-        return attribute
-    return None
+  def _formatDate(self, dateToFormat):
+    if dateToFormat and dateToFormat != "":
+      formatted = datetime.date(int(dateToFormat[0:4]), int(dateToFormat[4:6]), int(dateToFormat[6:8]))
+      return formatted.strftime(self._dateFormat)
+    return "No Date found"
+
+  def setPreferredDateFormat(self, dateFormat):
+    """ Setting the preferred format dates should be displayed
+
+    See Also:  https://docs.python.org/2/library/datetime.html#datetime.datetime.strftime
+    """
+    self._dateFormat = dateFormat
 
   def setInformation(self, attributeName, value, toolTip=None):
     attribute = self.getAttribute(attributeName)
@@ -784,32 +1058,41 @@ class BasicInformationWatchBox(qt.QGroupBox):
     attribute.valueLabel.toolTip = toolTip
 
   def getInformation(self, attributeName):
+    """ Retrieve information by delivering the attribute name.
+
+      Returns:
+        value if WatchBoxAttribute was set to masked else the original value
+    """
     attribute = self.getAttribute(attributeName)
     return attribute.value if not attribute.masked else attribute.originalValue
 
-  def formatDate(self, dateToFormat):
-    if dateToFormat and dateToFormat != "":
-      formatted = datetime.date(int(dateToFormat[0:4]), int(dateToFormat[4:6]), int(dateToFormat[6:8]))
-      return formatted.strftime(self.PREFERRED_DATE_FORMAT)
-    return "No Date found"
+  def getAttribute(self, name):
+    """ Retrieve attribute by attribute name.
 
-  def formatPatientName(self, name):
-    if name != "":
-      splitted = name.split('^')
-      try:
-        name = splitted[1] + ", " + splitted[0]
-      except IndexError:
-        name = splitted[0]
-    return name
+      Returns:
+        None if attribute name was not found else WatchBoxAttribute
+    """
+    for attribute in self.attributes:
+      if attribute.name == name:
+        return attribute
+    return None
 
 
 class FileBasedInformationWatchBox(BasicInformationWatchBox):
+  """ FileBasedInformationWatchBox is a base class for file based information that should be displayed in a watchbox
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.BasicInformationWatchBox`
+  """
 
   DEFAULT_TAG_VALUE_SEPARATOR = ": "
   DEFAULT_TAG_NAME_SEPARATOR = "_"
 
   @property
   def sourceFile(self):
+    """ Source file which information should be displayed in the watchbox. """
     self._sourceFile = getattr(self, "_sourceFile", None)
     return self._sourceFile
 
@@ -832,6 +1115,11 @@ class FileBasedInformationWatchBox(BasicInformationWatchBox):
     return self.DEFAULT_TAG_VALUE_SEPARATOR.join(values)
 
   def updateInformation(self):
+    """ Forcing information to be updated from files.
+
+    If no callback is implemented for the attribute, the information will be updated from WatchBoxAttribute.
+
+    """
     for attribute in self.attributes:
       if attribute.callback:
         value = attribute.callback()
@@ -840,12 +1128,50 @@ class FileBasedInformationWatchBox(BasicInformationWatchBox):
       self.setInformation(attribute.name, value, toolTip=value)
 
   def updateInformationFromWatchBoxAttribute(self, attribute):
+    """ This method implements the strategy how watchbox information are retrieve from files.
+
+    Note: This method needs to be implemented by inheriting classes.
+    """
     raise NotImplementedError
 
 
 class XMLBasedInformationWatchBox(FileBasedInformationWatchBox):
+  """ XMLBasedInformationWatchBox is based on xml file based information that should be displayed in a watchbox.
+
+  .. image:: images/XMLBasedInformationWatchBox.png
+
+  .. code-block:: python
+    :caption: Display information retrieved from a xml file
+
+    from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+    from SlicerDevelopmentToolboxUtils.widgets import XMLBasedInformationWatchBox
+    import os
+
+    watchBoxInformation = [WatchBoxAttribute('PatientName', 'Name:', 'PatientName'),
+                           WatchBoxAttribute('StudyDate', 'Study Date:', 'StudyDate'),
+                           WatchBoxAttribute('PatientID', 'PID:', 'PatientID'),
+                           WatchBoxAttribute('PatientBirthDate', 'DOB:', 'PatientBirthDate')]
+
+    informationWatchBox = XMLBasedInformationWatchBox(watchBoxInformation, columns=2)
+
+    informationWatchBox.sourceFile = os.path.join(os.path.dirname(slicer.util.modulePath("SlicerDevelopmentToolbox")),
+                                                  "doc", "data", "XMLBasedInformationWatchBoxTest.xml")
+    informationWatchBox.show()
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.FileBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.BasicInformationWatchBox`
+  """
 
   DATE_TAGS_TO_FORMAT = ["StudyDate", "PatientBirthDate", "SeriesDate", "ContentDate", "AcquisitionDate"]
+  """ A list of date attributes names as defined for every WatchBoxAttribute that needs to be formatted
+  
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+  """
 
   @FileBasedInformationWatchBox.sourceFile.setter
   def sourceFile(self, filePath):
@@ -869,15 +1195,47 @@ class XMLBasedInformationWatchBox(FileBasedInformationWatchBox):
       for tag in attribute.tags:
         currentValue = ModuleLogicMixin.findElement(self.dom, tag)
         if tag in self.DATE_TAGS_TO_FORMAT:
-          currentValue = self.formatDate(currentValue)
+          currentValue = self._formatDate(currentValue)
         elif tag == "PatientName":
-          currentValue = self.formatPatientName(currentValue)
+          currentValue = self._formatPatientName(currentValue)
         values.append(currentValue)
       return self._getTagValueFromTagValues(values)
     return ""
 
 
 class DICOMBasedInformationWatchBox(FileBasedInformationWatchBox):
+  """ DICOMBasedInformationWatchBox is based on information retrieved from DICOM that should be displayed in a watchbox.
+
+  .. image:: images/DICOMBasedInformationWatchBox.png
+
+  .. code-block:: python
+    :caption: Display information retrieved from a DICOM file
+
+    from SlicerDevelopmentToolboxUtils.helpers import WatchBoxAttribute
+    from SlicerDevelopmentToolboxUtils.widgets import DICOMBasedInformationWatchBox
+    from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
+    import os
+
+    WatchBoxAttribute.TRUNCATE_LENGTH = 20
+    watchBoxInformation = [WatchBoxAttribute('PatientName', 'Name: ', DICOMTAGS.PATIENT_NAME),
+                           WatchBoxAttribute('PatientID', 'PID: ', DICOMTAGS.PATIENT_ID),
+                           WatchBoxAttribute('DOB', 'DOB: ', DICOMTAGS.PATIENT_BIRTH_DATE)]
+
+    informationWatchBox = DICOMBasedInformationWatchBox(watchBoxInformation, title="Patient Information")
+
+    filename = "1.3.6.1.4.1.43046.3.330964839400343291362242315939623549555"
+    informationWatchBox.sourceFile = os.path.join(os.path.dirname(slicer.util.modulePath("SlicerDevelopmentToolbox")),
+                                                  "doc", "data", filename)
+    informationWatchBox.show()
+
+
+  See Also:
+    :paramref:`SlicerDevelopmentToolboxUtils.helpers.WatchBoxAttribute`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.FileBasedInformationWatchBox`
+
+    :paramref:`SlicerDevelopmentToolboxUtils.widgets.BasicInformationWatchBox`
+  """
 
   DATE_TAGS_TO_FORMAT = [DICOMTAGS.STUDY_DATE, DICOMTAGS.PATIENT_BIRTH_DATE]
 
@@ -890,9 +1248,150 @@ class DICOMBasedInformationWatchBox(FileBasedInformationWatchBox):
       for tag in attribute.tags:
         currentValue = ModuleLogicMixin.getDICOMValue(self.sourceFile, tag, "")
         if tag in self.DATE_TAGS_TO_FORMAT:
-          currentValue = self.formatDate(currentValue)
+          currentValue = self._formatDate(currentValue)
         elif tag == DICOMTAGS.PATIENT_NAME:
-          currentValue = self.formatPatientName(currentValue)
+          currentValue = self._formatPatientName(currentValue)
         values.append(currentValue)
       return self._getTagValueFromTagValues(values)
     return ""
+
+
+class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
+  """ Dialog for testing network connectivity specifically for DICOM reception.
+
+  .. |pic1| image:: images/DICOMReceptionTestWidget_initial_status.png
+  .. |pic2| image:: images/DICOMReceptionTestWidget_waiting_status.png
+  .. |pic3| image:: images/DICOMReceptionTestWidget_success_status.png
+
+  +--------+-----------+-----------+
+  | Initial|  Waiting  |  Success  |
+  +========+===========+===========+
+  | |pic1| |  |pic2|   |   |pic3|  |
+  +--------+-----------+-----------+
+
+  Can be used to test the reception of DICOM data on a specified port. Once the start buttons is clickeda temporary
+  directory will be created under slicer.app.temporaryPath. Closing the dialog  will stop the DICOM receiver (in case
+  it's running) and the temporarily created directory will be deleted.
+
+  Args:
+    incomingPort (str, optional): port on which DICOM data is expected to be received. Default: 11112
+    parent (qt.QWidget, optional): parent of the widget
+
+  .. doctest::
+
+    from SlicerDevelopmentToolboxUtils.widgets import DICOMReceptionTestWidget
+    dicomTestWidget = DICOMReceptionTestWidget()
+    dicomTestWidget.show()
+  """
+
+  __Initial_Style = 'background-color: indianred; color: black;'
+  __Waiting_Style = 'background-color: gold; color: black;'
+  __Success_Style = 'background-color: green; color: white;'
+
+  __Initial_Status_Text = "Not Running."
+  __Success_Status_Text = "DICOM reception successfully tested!"
+
+  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
+
+  def __init__(self, incomingPort="11112", parent=None):
+    qt.QDialog.__init__(self, parent)
+    self.__dicomReceiver = None
+    self.__incomingPort = incomingPort
+    self.success = False
+    self.setup()
+
+  def setup(self):
+    """ Setup user interface including signal connections"""
+    self.setLayout(qt.QGridLayout())
+    self.incomingPortSpinBox = qt.QSpinBox()
+    self.incomingPortSpinBox.setMaximum(65535)
+    if self.__incomingPort:
+      self.incomingPortSpinBox.setValue(int(self.__incomingPort))
+    self.startButton = self.createButton("Start")
+    self.stopButton = self.createButton("Stop", enabled=False)
+    self.statusEdit = self.createLineEdit(self.__Initial_Status_Text, enabled=False)
+    self.statusEdit.setStyleSheet(self.__Initial_Style)
+
+    self.layout().addWidget(qt.QLabel("Port:"), 0, 0)
+    self.layout().addWidget(self.incomingPortSpinBox, 0, 1)
+    self.layout().addWidget(qt.QLabel("Status:"), 1, 0)
+    self.layout().addWidget(self.statusEdit, 1, 1)
+    self.layout().addWidget(self.startButton, 2, 0)
+    self.layout().addWidget(self.stopButton, 2, 1)
+    self._setupConnections()
+
+  def show(self):
+    """Displays the dialog"""
+    self.statusEdit.setText(self.__Initial_Status_Text)
+    qt.QDialog.show(self)
+
+  def hide(self):
+    """Hides the dialog, stops the DICOM receiver in case it is running and deletes the temporarily created directory"""
+    self._cleanup()
+    qt.QDialog.hide()
+
+  def reject(self):
+    """Rejects the dialog and cleans up DICOM receiver and temporarily created directory"""
+    self._cleanup()
+    qt.QDialog.reject(self)
+
+  def _setupConnections(self):
+    self.startButton.clicked.connect(self._onStartButtonClicked)
+    self.stopButton.clicked.connect(self._onStopButtonClicked)
+    self.statusEdit.textChanged.connect(self._onStatusEditTextChanged)
+    self.incomingPortSpinBox.valueChanged.connect(lambda value: self.statusEdit.setText(self.__Initial_Status_Text))
+
+  def _onStartButtonClicked(self):
+    self.startButton.enabled = False
+    self.incomingPortSpinBox.enabled = False
+    self.stopButton.enabled = True
+    self._start()
+
+  def _start(self):
+    from datetime import datetime
+    directory = os.path.join(slicer.app.temporaryPath, datetime.now().strftime("%Y_%m_%d_%H_%M_%S"))
+    ModuleLogicMixin.createDirectory(directory)
+    self.__dicomReceiver = SmartDICOMReceiver(directory, self.incomingPortSpinBox.value)
+    self.__dicomReceiver.addEventObserver(SmartDICOMReceiver.StatusChangedEvent, self._onDICOMReceiverStatusChanged)
+    self.__dicomReceiver.addEventObserver(SmartDICOMReceiver.FileCountChangedEvent, self._onFilesReceived)
+    self.__dicomReceiver.start()
+    self.statusEdit.setStyleSheet(self.__Waiting_Style)
+
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def _onDICOMReceiverStatusChanged(self, caller, event, callData):
+    self.statusEdit.setText(callData)
+    self.statusEdit.setStyleSheet(self.__Initial_Style)
+
+  @vtk.calldata_type(vtk.VTK_INT)
+  def _onFilesReceived(self, caller, event, count):
+    self._onStopButtonClicked()
+    self.statusEdit.setText(self.__Success_Status_Text)
+    self.statusEdit.setStyleSheet(self.__Success_Style)
+    self.invokeEvent(self.SuccessEvent)
+
+  def _onStopButtonClicked(self):
+    self.startButton.enabled = True
+    self.incomingPortSpinBox.enabled = True
+    self.stopButton.enabled = False
+    self.__dicomReceiver.stop()
+    self.__dicomReceiver.removeEventObservers()
+    self.statusEdit.setText(self.__Initial_Status_Text)
+    self.statusEdit.setStyleSheet(self.__Initial_Style)
+
+  def _onStatusEditTextChanged(self, text):
+    width = self._getMinimumTextWidth(text)
+    if width > self.statusEdit.width:
+      self.statusEdit.setFixedSize(width+12, self.statusEdit.height) # border width: 2+2 and padding: 8 = 2+2+8=12
+
+  def _cleanup(self):
+    if self.__dicomReceiver:
+      if self.__dicomReceiver.isRunning():
+        self._onStopButtonClicked()
+
+      try:
+        import shutil
+        shutil.rmtree(self.__dicomReceiver.incomingDataDirectory)
+      except OSError:
+        pass
+      finally:
+        self.__dicomReceiver = None

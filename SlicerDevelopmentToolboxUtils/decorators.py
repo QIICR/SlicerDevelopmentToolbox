@@ -6,18 +6,19 @@ import slicer
 
 
 class logmethod(object):
-  """ This decorator can be used for logging methods without the need of reimplementing log messages over again. The
-        decorator logs information about the called method name including caller and arguments
+  """ This decorator can be used for logging methods without the need of reimplementing log messages over and over again.
 
-      Usage:
+  The decorator logs information about the called method name including caller and arguments.
 
-      @logmethod()
-      def sub(x,y, switch=False):
-        return x -y if not switch else y-x
+  .. doctest::
 
-      @logmethod(level=logging.INFO)
-      def sub(x,y, switch=False):
-        return x -y if not switch else y-x
+    @logmethod()
+    def sub(x,y, switch=False):
+      return x -y if not switch else y-x
+
+    @logmethod(level=logging.INFO)
+    def sub(x,y, switch=False):
+      return x -y if not switch else y-x
   """
 
   def __init__(self, level=logging.DEBUG):
@@ -54,11 +55,11 @@ class onModuleSelected(object):
   """ This decorator can be used for executing the decorated function/method only if a certain Slicer module with name
       moduleName is currently selected
 
-      Usage:
+  .. doctest::
 
-      @onModuleSelected(moduleName="SliceTracker")
-      def onLayoutChanged(self, layout=None):
-        print "layout changed"
+    @onModuleSelected(moduleName="SliceTracker")
+    def onLayoutChanged(self, layout=None):
+      print "layout changed"
   """
 
   def __init__(self, moduleName):
@@ -76,6 +77,18 @@ class onModuleSelected(object):
 
 
 def onExceptionReturnNone(func):
+  """ Whenever an exception occurs within the decorated function, this decorator will return None
+
+  .. doctest::
+
+      >>> from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone
+      >>> @onExceptionReturnNone
+      ... def getElement(key, dictionary):
+      ...   return dictionary[key]
+
+      >>> result = getElement('foobar', {'foo':1, 'bar':2}) # no foobar in dictionary
+      >>> result is None
+  """
 
   @wraps(func)
   def wrapper(*args, **kwargs):
@@ -87,6 +100,18 @@ def onExceptionReturnNone(func):
 
 
 def onExceptionReturnFalse(func):
+  """ Whenever an exception occurs within the decorated function, this decorator will return False
+
+  .. doctest::
+
+      >>> from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnFalse
+      >>> @onExceptionReturnFalse
+      ... def getElement(key, dictionary):
+      ...   return dictionary[key]
+
+      >>> result = getElement('foobar', {'foo':1, 'bar':2}) # no foobar in dictionary
+      >>> result is False
+  """
 
   @wraps(func)
   def wrapper(*args, **kwargs):
@@ -98,6 +123,8 @@ def onExceptionReturnFalse(func):
 
 
 def onReturnProcessEvents(func):
+  """ After running the decorated function slicer.app.processEvents() will be executed
+  """
 
   @wraps(func)
   def wrapper(*args, **kwargs):
@@ -107,6 +134,8 @@ def onReturnProcessEvents(func):
 
 
 def beforeRunProcessEvents(func):
+  """ Before running the decorated function slicer.app.processEvents() will be executed
+  """
 
   @wraps(func)
   def wrapper(*args, **kwargs):
@@ -116,6 +145,8 @@ def beforeRunProcessEvents(func):
 
 
 def callCount(level=logging.DEBUG):
+  """ This decorator is useful for debugging purposes where one wants to know the call count of the decorated function.
+  """
 
   def decorator(func):
     @wraps(func)
@@ -140,19 +171,11 @@ class MultiMethodRegistrations:
 
   registry = {}
 
-
-def returnImmediatelyIfNodeIsNone(func):
-
-  @wraps(func)
-  def wrapper(*args, **kwargs):
-    if not args[1]:
-      return
-    func(*args, **kwargs)
-  return wrapper
-
-
 class MultiMethod:
-  # source: http://www.artima.com/weblogs/viewpost.jsp?thread=101605
+  """ Helper class for keeping track of multimethod decorated methods
+
+  See Also: http://www.artima.com/weblogs/viewpost.jsp?thread=101605
+  """
   def __init__(self, name):
     self.__name__ = name
     self.name = name
@@ -171,11 +194,9 @@ class MultiMethod:
 
 
 def multimethod(*types):
-  # TODO: swtich to decorator that uses functools wraps
-  """ This decorator can be used to define different versions of a
-      method/function for different datatypes but keeping the same name
+  """ This decorator can be used to define different signatures of a method/function for different data types
 
-      original source: http://www.artima.com/weblogs/viewpost.jsp?thread=101605
+  .. doctest::
 
       @multimethod([int, float], [int, float], str)
       def foo(arg1, arg2, arg3):
@@ -189,6 +210,8 @@ def multimethod(*types):
       foo(1.0,2,"bar")
       foo(1,2.0,"bar")
       foo(1.0,2.0,"bar")
+
+  See Also: http://www.artima.com/weblogs/viewpost.jsp?thread=101605
   """
 
   def register(func):
@@ -203,7 +226,9 @@ def multimethod(*types):
 
 
 def timer(func):
-  def new_function(*args, **kwargs):
+  """ This decorator can be used for profiling a method/function by printing the elapsed time after execution.
+  """
+  def _new_function(*args, **kwargs):
     import time
     startTime = time.time()
     x = func(*args, **kwargs)
@@ -211,10 +236,12 @@ def timer(func):
     print "{} ran in: {0} seconds".format(func.__name__, duration)
     return x
 
-  return new_function
+  return _new_function
 
 
 class processEventsEvery:
+  """ Decorator for executing a method/function every n milli seconds.
+  """
 
   def __init__(self, interval=100):
     import qt
@@ -232,35 +259,47 @@ class processEventsEvery:
       self.timer.stop()
     return wrapped_f
 
-  @callCount()
   def onTriggered(self):
     slicer.app.processEvents()
 
 
-def priorCall(functionToCallFunction):
+def priorCall(functionToCall):
+  """ This decorator calls functionToCall prior to the decorated function.
+
+  Args:
+    functionToCall(function): function to be called prior(before) the decorated function
+  """
   def decorator(func):
     @wraps(func)
     def f(*args, **kwargs):
-      logging.debug("calling {} before {}".format(functionToCallFunction.__name__, func.__name__))
-      functionToCallFunction(args[0])
+      logging.debug("calling {} before {}".format(functionToCall.__name__, func.__name__))
+      functionToCall(args[0])
       func(*args, **kwargs)
     return f
   return decorator
 
 
-def postCall(functionToCallFunction):
+def postCall(functionToCall):
+  """ This decorator calls functionToCall after the decorated function.
+
+  Args:
+    functionToCall(function): function to be called after the decorated function
+  """
   def decorator(func):
     @wraps(func)
     def f(*args, **kwargs):
-      logging.debug("calling {} after {}".format(functionToCallFunction.__name__, func.__name__))
+      logging.debug("calling {} after {}".format(functionToCall.__name__, func.__name__))
       func(*args, **kwargs)
-      functionToCallFunction(args[0])
+      functionToCall(args[0])
     return f
   return decorator
 
 
 def singleton(cls):
-  # source: http://stackoverflow.com/questions/12305142/issue-with-singleton-python-call-two-times-init
+  """ This decorator makes sure that only one instance of the decorated class will be created (singleton).
+
+  See Also: http://stackoverflow.com/questions/12305142/issue-with-singleton-python-call-two-times-init
+  """
   instances = {}
 
   def getinstance(*args, **kwargs):

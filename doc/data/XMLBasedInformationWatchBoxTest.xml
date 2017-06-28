@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<file-format>
+<meta-header xfer="1.2.840.10008.1.2.1" name="Little Endian Explicit">
+<element tag="0002,0000" vr="UL" vm="1" len="4" name="FileMetaInformationGroupLength">190</element>
+<element tag="0002,0001" vr="OB" vm="1" len="2" name="FileMetaInformationVersion" binary="hidden"></element>
+<element tag="0002,0002" vr="UI" vm="1" len="26" name="MediaStorageSOPClassUID">1.2.840.10008.5.1.4.1.1.4</element>
+<element tag="0002,0003" vr="UI" vm="1" len="58" name="MediaStorageSOPInstanceUID">1.3.6.1.4.1.43046.3.16897035407001888366520131596236578886</element>
+<element tag="0002,0010" vr="UI" vm="1" len="20" name="TransferSyntaxUID">1.2.840.10008.1.2.1</element>
+<element tag="0002,0012" vr="UI" vm="1" len="18" name="ImplementationClassUID">1.2.40.0.13.1.1.1</element>
+<element tag="0002,0013" vr="SH" vm="1" len="14" name="ImplementationVersionName">dcm4che-1.4.35</element>
+</meta-header>
+<data-set xfer="1.2.840.10008.1.2.1" name="Little Endian Explicit">
+<element tag="0008,0005" vr="CS" vm="1" len="10" name="SpecificCharacterSet">ISO_IR 100</element>
+<element tag="0008,0008" vr="CS" vm="3" len="22" name="ImageType">ORIGINAL\PRIMARY\OTHER</element>
+<element tag="0008,0016" vr="UI" vm="1" len="26" name="SOPClassUID">1.2.840.10008.5.1.4.1.1.4</element>
+<element tag="0008,0018" vr="UI" vm="1" len="58" name="SOPInstanceUID">1.3.6.1.4.1.43046.3.16897035407001888366520131596236578886</element>
+<element tag="0008,0020" vr="DA" vm="1" len="8" name="StudyDate">20080318</element>
+<element tag="0008,0023" vr="DA" vm="1" len="8" name="ContentDate">20080318</element>
+<element tag="0008,0030" vr="TM" vm="0" len="0" name="StudyTime"></element>
+<element tag="0008,0031" vr="TM" vm="1" len="14" name="SeriesTime">113452.000000</element>
+<element tag="0008,0033" vr="TM" vm="0" len="0" name="ContentTime"></element>
+<element tag="0008,0050" vr="SH" vm="1" len="16" name="AccessionNumber">8563608694107023</element>
+<element tag="0008,0060" vr="CS" vm="1" len="2" name="Modality">MR</element>
+<element tag="0008,0070" vr="LO" vm="0" len="0" name="Manufacturer"></element>
+<element tag="0008,0090" vr="PN" vm="0" len="2" name="ReferringPhysicianName"></element>
+<element tag="0008,1030" vr="LO" vm="1" len="38" name="StudyDescription">MRI PROSTATE WITH AND WITHOUT CONTRAST</element>
+<sequence tag="0008,1032" vr="SQ" card="1" name="ProcedureCodeSequence">
+<item card="4">
+<element tag="0008,0100" vr="SH" vm="1" len="16" name="CodeValue">MR.AB.PROSTATE@</element>
+<element tag="0008,0102" vr="SH" vm="1" len="6" name="CodingSchemeDesignator">GEIIS</element>
+<element tag="0008,0103" vr="SH" vm="1" len="2" name="CodingSchemeVersion">0</element>
+<element tag="0008,0104" vr="LO" vm="1" len="26" name="CodeMeaning">MRI PROSTATE WWO CONTRAST</element>
+</item>
+</sequence>
+<element tag="0008,103e" vr="LO" vm="1" len="12" name="SeriesDescription">AX T2 FRFSE</element>
+<element tag="0009,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_IDEN_01</element>
+<element tag="0009,0011" vr="LO" vm="1" len="6" name="PrivateCreator">GEIIS</element>
+<element tag="0010,0010" vr="PN" vm="1" len="12" name="PatientName">TestSubject1</element>
+<element tag="0010,0020" vr="LO" vm="1" len="12" name="PatientID">TestSubject1</element>
+<element tag="0010,0030" vr="DA" vm="1" len="8" name="PatientBirthDate">19381210</element>
+<element tag="0010,0040" vr="CS" vm="0" len="0" name="PatientSex"></element>
+<element tag="0018,0020" vr="CS" vm="1" len="2" name="ScanningSequence">SE</element>
+<element tag="0018,0021" vr="CS" vm="2" len="6" name="SequenceVariant">SK\OSP</element>
+<element tag="0018,0022" vr="CS" vm="8" len="74" name="ScanOptions">FAST_GEMS\FC_SLICE_AX_GEMS\FC\NPW\EDR_GEMS\TRF_GEMS\FILTERED_GEMS\FSA_GEMS</element>
+<element tag="0018,0023" vr="CS" vm="1" len="2" name="MRAcquisitionType">2D</element>
+<element tag="0018,0025" vr="CS" vm="1" len="2" name="AngioFlag">N</element>
+<element tag="0018,0050" vr="DS" vm="1" len="2" name="SliceThickness">3</element>
+<element tag="0018,0080" vr="DS" vm="1" len="4" name="RepetitionTime">4752</element>
+<element tag="0018,0081" vr="DS" vm="1" len="6" name="EchoTime">93.248</element>
+<element tag="0018,0083" vr="DS" vm="1" len="2" name="NumberOfAverages">2</element>
+<element tag="0018,0084" vr="DS" vm="1" len="10" name="ImagingFrequency">128.119339</element>
+<element tag="0018,0085" vr="SH" vm="1" len="2" name="ImagedNucleus">1H</element>
+<element tag="0018,0086" vr="IS" vm="1" len="2" name="EchoNumbers">1</element>
+<element tag="0018,0087" vr="DS" vm="1" len="2" name="MagneticFieldStrength">3</element>
+<element tag="0018,0088" vr="DS" vm="1" len="4" name="SpacingBetweenSlices">3.5</element>
+<element tag="0018,0091" vr="IS" vm="1" len="2" name="EchoTrainLength">13</element>
+<element tag="0018,0093" vr="DS" vm="1" len="4" name="PercentSampling">100</element>
+<element tag="0018,0094" vr="DS" vm="1" len="4" name="PercentPhaseFieldOfView">100</element>
+<element tag="0018,0095" vr="DS" vm="1" len="8" name="PixelBandwidth">81.3672</element>
+<element tag="0018,1088" vr="IS" vm="1" len="2" name="HeartRate">0</element>
+<element tag="0018,1090" vr="IS" vm="1" len="2" name="CardiacNumberOfImages">0</element>
+<element tag="0018,1094" vr="IS" vm="1" len="2" name="TriggerWindow">0</element>
+<element tag="0018,1100" vr="DS" vm="1" len="4" name="ReconstructionDiameter">140</element>
+<element tag="0018,1250" vr="SH" vm="1" len="12" name="ReceiveCoilName">FOVs E24 AA1</element>
+<element tag="0018,1310" vr="US" vm="4" len="8" name="AcquisitionMatrix">0\288\192\0</element>
+<element tag="0018,1312" vr="CS" vm="1" len="4" name="InPlanePhaseEncodingDirection">ROW</element>
+<element tag="0018,1314" vr="DS" vm="1" len="4" name="FlipAngle">111</element>
+<element tag="0018,1315" vr="CS" vm="1" len="2" name="VariableFlipAngleFlag">N</element>
+<element tag="0018,1316" vr="DS" vm="1" len="6" name="SAR">2.6573</element>
+<element tag="0018,5100" vr="CS" vm="1" len="4" name="PatientPosition">FFS</element>
+<element tag="0019,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_ACQU_01</element>
+<element tag="0020,000d" vr="UI" vm="1" len="60" name="StudyInstanceUID">1.3.6.1.4.1.43046.3.133894434737853143117037735339035839252</element>
+<element tag="0020,000e" vr="UI" vm="1" len="60" name="SeriesInstanceUID">1.3.6.1.4.1.43046.3.333329518145117223185805077504972117698</element>
+<element tag="0020,0010" vr="SH" vm="0" len="0" name="StudyID"></element>
+<element tag="0020,0011" vr="IS" vm="1" len="2" name="SeriesNumber">5</element>
+<element tag="0020,0012" vr="IS" vm="1" len="2" name="AcquisitionNumber">1</element>
+<element tag="0020,0013" vr="IS" vm="1" len="2" name="InstanceNumber">28</element>
+<element tag="0020,0032" vr="DS" vm="3" len="26" name="ImagePositionPatient">-77.4181\-41.5221\-26.8204</element>
+<element tag="0020,0037" vr="DS" vm="6" len="60" name="ImageOrientationPatient">0.999968\-0.00804274\-0.000182016\0.0079768\0.98832\0.152181</element>
+<element tag="0020,0052" vr="UI" vm="1" len="58" name="FrameOfReferenceUID">1.3.6.1.4.1.43046.3.18081008031336180308552379732806281102</element>
+<element tag="0020,1002" vr="IS" vm="1" len="2" name="ImagesInAcquisition">28</element>
+<element tag="0020,1040" vr="LO" vm="0" len="0" name="PositionReferenceIndicator"></element>
+<element tag="0020,1041" vr="DS" vm="1" len="10" name="SliceLocation">-16.201231</element>
+<element tag="0020,9056" vr="SH" vm="1" len="2" name="StackID">1</element>
+<element tag="0020,9057" vr="UL" vm="1" len="4" name="InStackPositionNumber">28</element>
+<element tag="0021,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_RELA_01</element>
+<element tag="0023,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_STDY_01</element>
+<element tag="0025,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_SERS_01</element>
+<element tag="0027,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_IMAG_01</element>
+<element tag="0028,0002" vr="US" vm="1" len="2" name="SamplesPerPixel">1</element>
+<element tag="0028,0004" vr="CS" vm="1" len="12" name="PhotometricInterpretation">MONOCHROME2</element>
+<element tag="0028,0010" vr="US" vm="1" len="2" name="Rows">512</element>
+<element tag="0028,0011" vr="US" vm="1" len="2" name="Columns">512</element>
+<element tag="0028,0030" vr="DS" vm="2" len="14" name="PixelSpacing">0.2734\0.2734</element>
+<element tag="0028,0100" vr="US" vm="1" len="2" name="BitsAllocated">16</element>
+<element tag="0028,0101" vr="US" vm="1" len="2" name="BitsStored">16</element>
+<element tag="0028,0102" vr="US" vm="1" len="2" name="HighBit">15</element>
+<element tag="0028,0103" vr="US" vm="1" len="2" name="PixelRepresentation">1</element>
+<element tag="0028,0106" vr="SS" vm="1" len="2" name="SmallestImagePixelValue">0</element>
+<element tag="0028,0107" vr="SS" vm="1" len="2" name="LargestImagePixelValue">4273</element>
+<element tag="0028,1050" vr="DS" vm="1" len="4" name="WindowCenter">2136</element>
+<element tag="0028,1051" vr="DS" vm="1" len="4" name="WindowWidth">4273</element>
+<element tag="0029,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_IMPS_01</element>
+<element tag="0040,0244" vr="DA" vm="1" len="8" name="PerformedProcedureStepStartDate">20080318</element>
+<element tag="0040,0245" vr="TM" vm="1" len="14" name="PerformedProcedureStepStartTime">111554.000000</element>
+<element tag="0040,2017" vr="LO" vm="1" len="16" name="FillerOrderNumberImagingServiceRequest">8563608694107023</element>
+<element tag="0043,0010" vr="LO" vm="1" len="12" name="PrivateCreator">GEMS_PARM_01</element>
+<element tag="0903,0010" vr="LO" vm="1" len="10" name="PrivateCreator">GEIIS PACS</element>
+<element tag="0905,0010" vr="LO" vm="1" len="6" name="PrivateCreator">GEIIS</element>
+<element tag="7fd1,0010" vr="LO" vm="1" len="6" name="PrivateCreator">GEIIS</element>
+<element tag="7fe0,0010" vr="OW" vm="1" len="524288" name="PixelData" loaded="no" binary="hidden"></element>
+</data-set>
+</file-format>

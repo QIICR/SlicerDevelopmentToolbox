@@ -1,21 +1,17 @@
-import vtk, slicer
+import vtk
 
 class SlicerDevelopmentToolboxEvents(object):
 
   NewImageDataReceivedEvent = vtk.vtkCommand.UserEvent + 100
   NewFileIndexedEvent = vtk.vtkCommand.UserEvent + 101
 
-  IncomingDataSkippedEvent = vtk.vtkCommand.UserEvent + 200
-  IncomingDataCanceledEvent = vtk.vtkCommand.UserEvent + 201
-  IncomingDataReceiveFinishedEvent = vtk.vtkCommand.UserEvent + 202
-  IncomingFileCountChangedEvent = vtk.vtkCommand.UserEvent + 203
-  DICOMReceiverStartedEvent = vtk.vtkCommand.UserEvent + 204
-  DICOMReceiverStoppedEvent = vtk.vtkCommand.UserEvent + 205
+  StartedEvent = vtk.vtkCommand.UserEvent + 201
+  CanceledEvent = vtk.vtkCommand.UserEvent + 202
+  SkippedEvent = vtk.vtkCommand.UserEvent + 203
+  StoppedEvent = vtk.vtkCommand.UserEvent + 204
+  FinishedEvent = vtk.vtkCommand.UserEvent + 205
+  FailedEvent = vtk.vtkCommand.UserEvent + 206
+  SuccessEvent = vtk.vtkCommand.UserEvent + 207
 
-  StatusChangedEvent = vtk.vtkCommand.UserEvent + 206
-
-  DownloadCanceledEvent = vtk.vtkCommand.UserEvent + 401
-  DownloadFinishedEvent = vtk.vtkCommand.UserEvent + 402
-  DownloadFailedEvent = vtk.vtkCommand.UserEvent + 403
-
-  CursorPositionModifiedEvent = slicer.vtkMRMLCrosshairNode.CursorPositionModifiedEvent
+  FileCountChangedEvent = vtk.vtkCommand.UserEvent + 300
+  StatusChangedEvent = vtk.vtkCommand.UserEvent + 301

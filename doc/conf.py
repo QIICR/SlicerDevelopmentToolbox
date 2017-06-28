@@ -27,7 +27,9 @@ body = dict(__doc__='docstring', __name__='not_A', __module__='modname')
 _classnames = [
   'QWidget',
   'QGroupBox',
-  'QPushButton'
+  'QPushButton',
+  'QMessageBox',
+  'QDialog'
 ]
 
 
@@ -66,7 +68,7 @@ sys.modules['vtk.vtkCommand.UserEvent'] = 1
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc']
+extensions = ['sphinx.ext.autodoc', 'sphinx_paramlinks', 'sphinx.ext.doctest', 'sphinxcontrib.napoleon']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -110,7 +112,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 pygments_style = 'sphinx'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = False
+todo_include_todos = True
 
 
 # -- Options for HTML output ----------------------------------------------

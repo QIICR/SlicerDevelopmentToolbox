@@ -77,6 +77,11 @@ class ParameterNodeObservationMixin(object):
 
 class GeneralModuleMixin(ParameterNodeObservationMixin):
 
+  def _processKwargs(self, **kwargs):
+    for key, value in kwargs.iteritems():
+      if hasattr(self, key):
+        setattr(self, key, value)
+
   @staticmethod
   def getSlicerErrorLogPath():
     return slicer.app.errorLogModel().filePath
@@ -291,6 +296,17 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     view.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
     return view, model
 
+  def setBackgroundToVolumeID(self, volume, clearLabels=True, showLabelOutline=False):
+    for widget in self.getAllVisibleWidgets():
+      compositeNode = widget.mrmlSliceCompositeNode()
+      if clearLabels:
+        compositeNode.SetLabelVolumeID(None)
+      compositeNode.SetForegroundVolumeID(None)
+      compositeNode.SetBackgroundVolumeID(volume.GetID() if volume else None)
+      sliceNode = widget.sliceLogic().GetSliceNode()
+      sliceNode.RotateToVolumePlane(volume)
+      sliceNode.SetUseLabelOutline(showLabelOutline)
+
   def createIcon(self, filename, iconPath=None):
     if not iconPath:
       iconPath = os.path.join(self.modulePath, 'Resources/Icons')
@@ -415,6 +431,11 @@ class ModuleWidgetMixin(GeneralModuleMixin):
       if hasattr(progressIndicator, key):
         setattr(progressIndicator, key, value)
     return progressIndicator
+
+  def _getMinimumTextWidth(self, text):
+    fm = qt.QFontMetrics(qt.QFont(text, 0))
+    width = fm.width(text)
+    return width
 
 
 class ModuleLogicMixin(GeneralModuleMixin):
@@ -740,8 +761,8 @@ class ModuleLogicMixin(GeneralModuleMixin):
     tfmLogic.hardenTransform(node)
 
   @staticmethod
-  def setAndObserveDisplayNode(node):
-    displayNode = slicer.vtkMRMLModelDisplayNode()
+  def createAndObserveDisplayNode(node, displayNodeClass=slicer.vtkMRMLDisplayNode):
+    displayNode = displayNodeClass()
     slicer.mrmlScene.AddNode(displayNode)
     node.SetAndObserveDisplayNodeID(displayNode.GetID())
     return displayNode
