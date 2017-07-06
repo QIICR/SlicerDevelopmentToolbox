@@ -8,6 +8,7 @@ following components:
 * Helpers
 * Widgets (QT)
 * Buttons (QT)
+* Icons (QT)
 * Constants (DICOM, QT, CSS)
 * Decorators
 * Events (VTK)

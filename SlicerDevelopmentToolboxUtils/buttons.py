@@ -4,9 +4,9 @@ import vtk
 import qt
 import slicer
 from helpers import WindowLevelEffect
-from events import SlicerDevelopmentToolboxEvents
 from mixins import ParameterNodeObservationMixin, ModuleWidgetMixin
 from widgets import SettingsMessageBox
+from icons import Icons
 
 
 class BasicIconButton(qt.QPushButton):
@@ -17,19 +17,13 @@ class BasicIconButton(qt.QPushButton):
     parent (qt.QWidget, optional): parent of the button
   """
 
-  _ICON_FILENAME=None
-
-  @property
-  def _buttonIcon(self):
-    if not self._ICON_FILENAME:
-      raise ValueError("_ICON_FILENAME needs to be defined by subclasses")
-    iconPath = os.path.join(os.path.dirname(inspect.getfile(self.__class__)), '../Resources/Icons', self._ICON_FILENAME)
-    pixmap = qt.QPixmap(iconPath)
-    return qt.QIcon(pixmap)
+  _ICON=None
 
   def __init__(self, text="", parent=None, **kwargs):
     qt.QPushButton.__init__(self, text, parent, **kwargs)
-    self.setIcon(self._buttonIcon)
+    if not self._ICON:
+      raise ValueError("_ICON needs to be defined by subclasses")
+    self.setIcon(self._ICON)
     self._connectSignals()
 
   def _connectSignals(self):
@@ -70,10 +64,9 @@ class ModuleSettingsButton(BasicIconButton):
 
   """
 
-  _ICON_FILENAME = 'icon-settings.png'
-
   def __init__(self, moduleName, text="", parent=None, **kwargs):
     self.moduleName = moduleName
+    self._ICON = Icons.settings
     super(ModuleSettingsButton, self).__init__(text, parent, **kwargs)
 
   def _connectSignals(self):
@@ -156,10 +149,10 @@ class RedSliceLayoutButton(LayoutButton):
     button.show()
   """
 
-  _ICON_FILENAME = 'LayoutOneUpRedSliceView.png'
   LAYOUT = slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView
 
   def __init__(self, text="", parent=None, **kwargs):
+    self._ICON = Icons.layout_one_up_red_slice_view
     super(RedSliceLayoutButton, self).__init__(text, parent, **kwargs)
     self.toolTip = "Red Slice Only Layout"
 
@@ -179,10 +172,10 @@ class FourUpLayoutButton(LayoutButton):
     button.show()
   """
 
-  _ICON_FILENAME = 'LayoutFourUpView.png'
   LAYOUT = slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView
 
   def __init__(self, text="", parent=None, **kwargs):
+    self._ICON = Icons.layout_four_up_view
     super(FourUpLayoutButton, self).__init__(text, parent, **kwargs)
     self.toolTip = "Four-Up Layout"
 
@@ -202,10 +195,10 @@ class FourUpTableViewLayoutButton(LayoutButton):
     button.show()
   """
 
-  _ICON_FILENAME = 'LayoutFourUpTableView.png'
   LAYOUT = slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpTableView
 
   def __init__(self, text="", parent=None, **kwargs):
+    self._ICON = Icons.layout_four_up_table_view
     super(FourUpTableViewLayoutButton, self).__init__(text, parent, **kwargs)
     self.toolTip = "Four-Up Table Layout"
 
@@ -225,10 +218,10 @@ class SideBySideLayoutButton(LayoutButton):
     button.show()
   """
 
-  _ICON_FILENAME = 'LayoutSideBySideView.png'
   LAYOUT = slicer.vtkMRMLLayoutNode.SlicerLayoutSideBySideView
 
   def __init__(self, text="", parent=None, **kwargs):
+    self._ICON = Icons.layout_side_by_side_view
     super(SideBySideLayoutButton, self).__init__(text, parent, **kwargs)
     self.toolTip = "Side by Side Layout"
 
@@ -258,7 +251,6 @@ class CrosshairButton(CheckableIconButton, ParameterNodeObservationMixin):
   CursorPositionModifiedEvent = slicer.vtkMRMLCrosshairNode.CursorPositionModifiedEvent
   """ Invoked whenever crosshair is enabled and cursor position changes """
 
-  _ICON_FILENAME = 'SlicesCrosshair.png'
   _DEFAULT_CROSSHAIR_MODE = slicer.vtkMRMLCrosshairNode.ShowSmallBasic
 
   @property
@@ -273,6 +265,7 @@ class CrosshairButton(CheckableIconButton, ParameterNodeObservationMixin):
     self.crosshairNode.SetCrosshairMode(mode)
 
   def __init__(self, text="", parent=None, **kwargs):
+    self._ICON = Icons.crosshair
     super(CrosshairButton, self).__init__(text, parent, **kwargs)
     self.toolTip = "Display crosshair"
     self.crosshairNodeObserverTag = None
@@ -351,8 +344,6 @@ class WindowLevelEffectsButton(CheckableIconButton, ModuleWidgetMixin):
 
   """
 
-  _ICON_FILENAME = 'icon-WindowLevelEffect.png'
-
   @property
   def sliceWidgets(self):
     """ List of qMRMLSliceWidget
@@ -367,6 +358,7 @@ class WindowLevelEffectsButton(CheckableIconButton, ModuleWidgetMixin):
     self._setup()
 
   def __init__(self, text="", sliceWidgets=None, parent=None, **kwargs):
+    self._ICON = Icons.window_level_effect
     super(WindowLevelEffectsButton, self).__init__(text, parent, **kwargs)
     self.toolTip = "Change W/L with respect to FG and BG opacity"
     self._wlEffects = {}

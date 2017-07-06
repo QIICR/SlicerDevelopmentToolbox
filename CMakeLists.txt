@@ -31,6 +31,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Utils/events.py
   ${MODULE_NAME}Utils/exceptions.py
   ${MODULE_NAME}Utils/widgets.py
+  ${MODULE_NAME}Utils/icons.py
   ${MODULE_NAME}Utils/buttons.py
   ${MODULE_NAME}Utils/module/__init__.py
   ${MODULE_NAME}Utils/module/base.py
@@ -41,18 +42,18 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
-  Resources/Icons/icon-addFiducial.png
-  Resources/Icons/icon-modifyFiducial.png
+  Resources/Icons/icon-fiducial-add.png
+  Resources/Icons/icon-fiducial-modify.png
   Resources/Icons/icon-apply.png
-  Resources/Icons/cursor-window-level.png
+  Resources/Icons/icon-cursor-WindowLevel.png
   Resources/Icons/icon-settings.png
   Resources/Icons/icon-star-filled.png
   Resources/Icons/icon-star-unfilled.png
-  Resources/Icons/LayoutFourUpView.png
-  Resources/Icons/LayoutFourUpTableView.png
-  Resources/Icons/LayoutOneUpRedSliceView.png
-  Resources/Icons/LayoutSideBySideView.png
-  Resources/Icons/SlicesCrosshair.png
+  Resources/Icons/icon-layout-FourUpView.png
+  Resources/Icons/icon-layout-FourUpTableView.png
+  Resources/Icons/icon-layout-OneUpRedSliceView.png
+  Resources/Icons/icon-layout-SideBySideView.png
+  Resources/Icons/icon-crosshair.png
   Resources/Icons/icon-WindowLevelEffect.png
   )
 

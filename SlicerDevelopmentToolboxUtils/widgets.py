@@ -13,6 +13,7 @@ from decorators import singleton
 from events import SlicerDevelopmentToolboxEvents
 from helpers import SmartDICOMReceiver, DICOMDirectorySender
 from mixins import ModuleWidgetMixin, ModuleLogicMixin
+from icons import Icons
 
 
 @singleton
@@ -167,7 +168,6 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
   def __init__(self, parent=None, **kwargs):
     qt.QWidget.__init__(self, parent)
-    self._iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
     self._processKwargs(**kwargs)
     self._connectedButtons = []
     self._modifiedEventObserverTag = None
@@ -214,9 +214,9 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
 
   def _setupIcons(self):
     self._iconSize = qt.QSize(24, 24)
-    self.addTargetsIcon = self.createIcon("icon-addFiducial.png", self._iconPath)
-    self.modifyTargetsIcon = self.createIcon("icon-modifyFiducial.png", self._iconPath)
-    self.finishTargetingIcon = self.createIcon("icon-apply.png", self._iconPath)
+    self.addTargetsIcon = Icons.fiducial_add
+    self.modifyTargetsIcon = Icons.fiducial_modify
+    self.finishTargetingIcon = Icons.apply
 
   def _setup(self):
     self.setLayout(qt.QGridLayout())
@@ -859,7 +859,6 @@ class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     qt.QMessageBox.__init__(self, *args)
     self.maximumValue = maximumValue
     self.text = text
-    self.iconPath = os.path.join(os.path.dirname(sys.modules[self.__module__].__file__), '../Resources/Icons')
     self._setupIcons()
     self._setup()
 
@@ -895,8 +894,8 @@ class RatingMessageBox(qt.QMessageBox, ModuleWidgetMixin):
     self.reject()
 
   def _setupIcons(self):
-    self.filledStarIcon = self.createIcon("icon-star-filled.png", self.iconPath)
-    self.unfilledStarIcon = self.createIcon("icon-star-unfilled.png", self.iconPath)
+    self.filledStarIcon = Icons.star_filled
+    self.unfilledStarIcon = Icons.star_unfilled
 
   def _setup(self):
     for rateValue in range(1, self.maximumValue+1):
