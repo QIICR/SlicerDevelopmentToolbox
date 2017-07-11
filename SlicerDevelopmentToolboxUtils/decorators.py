@@ -10,7 +10,9 @@ class logmethod(object):
 
   The decorator logs information about the called method name including caller and arguments.
 
-  .. doctest::
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.decorators import logmethod
 
     @logmethod()
     def sub(x,y, switch=False):
@@ -55,7 +57,9 @@ class onModuleSelected(object):
   """ This decorator can be used for executing the decorated function/method only if a certain Slicer module with name
       moduleName is currently selected
 
-  .. doctest::
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.decorators import onModuleSelected
 
     @onModuleSelected(moduleName="SliceTracker")
     def onLayoutChanged(self, layout=None):
@@ -79,15 +83,14 @@ class onModuleSelected(object):
 def onExceptionReturnNone(func):
   """ Whenever an exception occurs within the decorated function, this decorator will return None
 
-  .. doctest::
+  .. code-block:: python
 
-      >>> from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone
-      >>> @onExceptionReturnNone
-      ... def getElement(key, dictionary):
-      ...   return dictionary[key]
+    from SlicerDevelopmentToolboxUtils.decorators import onExceptionReturnNone
+    @onExceptionReturnNone
+    def getElement(key, dictionary):
+      return dictionary[key]
 
-      >>> result = getElement('foobar', {'foo':1, 'bar':2}) # no foobar in dictionary
-      >>> result is None
+    result = getElement('foobar', {'foo':1, 'bar':2}) # no foobar in dictionary
   """
 
   @wraps(func)
@@ -308,3 +311,16 @@ def singleton(cls):
     return instances[cls]
 
   return getinstance
+
+
+class classproperty(object):
+  """ This decorator enables adding properties to classes that can be called without instantiating an object
+
+  See Also: https://stackoverflow.com/a/13624858
+  """
+
+  def __init__(self, fget):
+    self.fget = fget
+
+  def __get__(self, owner_self, owner_cls):
+    return self.fget(owner_cls)
