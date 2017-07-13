@@ -60,7 +60,10 @@ class IconsMetaClass(type):
 
 
 class Icons(object):
-  """ Icons
+  """ The Icons class provides a bunch of frequently used icons.
+
+  All icons from ``names`` can directly be accessed by using ``Icons.{name from names list}`` (i.e. ``Icons.apply``)
+
 
   .. code-block:: python
 

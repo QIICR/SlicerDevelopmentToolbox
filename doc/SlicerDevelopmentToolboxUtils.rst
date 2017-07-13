@@ -57,6 +57,14 @@ SlicerDevelopmentToolboxUtils\.helpers module
     :undoc-members:
     :show-inheritance:
 
+SlicerDevelopmentToolboxUtils\.icons module
+-------------------------------------------
+
+.. automodule:: SlicerDevelopmentToolboxUtils.icons
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 SlicerDevelopmentToolboxUtils\.metaclasses module
 -------------------------------------------------
 

@@ -1,5 +1,3 @@
-import inspect
-import os
 import vtk
 import qt
 import slicer
@@ -82,9 +80,8 @@ class LayoutButton(CheckableIconButton):
   """ Base class for layout specific buttons
 
   LayoutButton can be subclassed where each subclass needs to define a layout. Once the button is pushed, 3D Slicer
-  switches to the defined layout. LayoutButton is connected to layout changes signal which means that upon layout
-  changes LayoutButton checks itself if the new layout matches the layout its defined layout and checks or unchecks
-  itself.
+  switches to the defined layout. LayoutButton reacts to layout changes of Slicer where the LayoutButton adjusts it's
+  check state depending on the currently chosen layout.
 
   Args:
     text (str, optional): text to be displayed for the button
