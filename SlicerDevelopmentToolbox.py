@@ -22,7 +22,7 @@ class SlicerDevelopmentToolbox(ScriptedLoadableModule):
     parent.contributors = ["Christian Herz (SPL), Andrey Fedorov (SPL)"]
     parent.helpText = """
     This class represents a hidden module which includes a lot of useful
-    helpers, constants, decorators and mixins.
+    widgets, helpers, constants, decorators, mixins, metaclasses and icons.
     No module interface here.
     """
     parent.acknowledgementText = """
