@@ -41,21 +41,9 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Utils/module/step.py
   )
 
-set(MODULE_PYTHON_RESOURCES
-  Resources/Icons/icon-fiducial-add.png
-  Resources/Icons/icon-fiducial-modify.png
-  Resources/Icons/icon-apply.png
-  Resources/Icons/icon-cursor-WindowLevel.png
-  Resources/Icons/icon-settings.png
-  Resources/Icons/icon-star-filled.png
-  Resources/Icons/icon-star-unfilled.png
-  Resources/Icons/icon-layout-FourUpView.png
-  Resources/Icons/icon-layout-FourUpTableView.png
-  Resources/Icons/icon-layout-OneUpRedSliceView.png
-  Resources/Icons/icon-layout-SideBySideView.png
-  Resources/Icons/icon-crosshair.png
-  Resources/Icons/icon-WindowLevelEffect.png
-  )
+file(GLOB_RECURSE MODULE_PYTHON_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/Resources/Icons/*
+)
 
 #-----------------------------------------------------------------------------
 slicerMacroBuildScriptedModule(

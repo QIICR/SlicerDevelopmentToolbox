@@ -126,12 +126,32 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   _HEADERS = ["Name", "Delete"]
 
   DEFAULT_FIDUCIAL_LIST_NAME = None
+  """ Default fiducial list name to be used """
   DEFAULT_CREATE_FIDUCIALS_TEXT = "Place Target(s)"
+  """ Default text to be displayed for the startTargetingButton """
   DEFAULT_MODIFY_FIDUCIALS_TEXT = "Modify Target(s)"
+  """ Default text to be displayed after creation for the startTargetingButton """
 
   StartedEvent = SlicerDevelopmentToolboxEvents.StartedEvent
+  """ Targeting mode was activated"""
   FinishedEvent = SlicerDevelopmentToolboxEvents.FinishedEvent
+  """ Targeting was finished """
   TargetSelectedEvent = vtk.vtkCommand.UserEvent + 337
+  """ Target selection changed 
+  
+  Slot to be called once 
+    
+  .. doctest::
+    import ast
+    import vtk
+     
+    @vtk.calldata_type(vtk.VTK_STRING)
+    def onTargetSelected(caller, event, callData):
+      info = ast.literal_eval(callData)
+      print info["index"]
+      print info["nodeID"]
+  
+  """
 
   @property
   def currentNode(self):
