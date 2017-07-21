@@ -1275,12 +1275,12 @@ class DICOMBasedInformationWatchBox(FileBasedInformationWatchBox):
     return ""
 
 
-class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
+class DICOMConnectionTestWidget(qt.QDialog, ModuleWidgetMixin):
   """ Dialog for testing network connectivity specifically for DICOM reception.
 
-  .. |pic1| image:: images/DICOMReceptionTestWidget_initial_status.png
-  .. |pic2| image:: images/DICOMReceptionTestWidget_waiting_status.png
-  .. |pic3| image:: images/DICOMReceptionTestWidget_success_status.png
+  .. |pic1| image:: images/DICOMConnectionTestWidget_initial_status.png
+  .. |pic2| image:: images/DICOMConnectionTestWidget_waiting_status.png
+  .. |pic3| image:: images/DICOMConnectionTestWidget_success_status.png
 
   +--------+-----------+-----------+
   | Initial|  Waiting  |  Success  |
@@ -1298,8 +1298,8 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
 
   .. doctest::
 
-    from SlicerDevelopmentToolboxUtils.widgets import DICOMReceptionTestWidget
-    dicomTestWidget = DICOMReceptionTestWidget()
+    from SlicerDevelopmentToolboxUtils.widgets import DICOMConnectionTestWidget
+    dicomTestWidget = DICOMConnectionTestWidget()
     dicomTestWidget.show()
   """
 
@@ -1308,7 +1308,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
   __Success_Style = 'background-color: green; color: white;'
 
   __Initial_Status_Text = "Not Running."
-  __Success_Status_Text = "DICOM reception successfully tested!"
+  __Success_Status_Text = "DICOM connection successfully tested!"
 
   SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
 
@@ -1316,6 +1316,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
     qt.QDialog.__init__(self, parent)
     self.__dicomReceiver = None
     self.__incomingPort = incomingPort
+    self.modal = True
     self.success = False
     self.setup()
 
@@ -1409,7 +1410,7 @@ class DICOMReceptionTestWidget(qt.QDialog, ModuleWidgetMixin):
 
       try:
         import shutil
-        shutil.rmtree(self.__dicomReceiver.incomingDataDirectory)
+        shutil.rmtree(self.__dicomReceiver.destinationDirectory)
       except OSError:
         pass
       finally:

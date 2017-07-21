@@ -398,7 +398,7 @@ class SmartDICOMReceiver(ModuleLogicMixin):
   """ Invoked when filecount of the destination directory changed """
 
   def __init__(self, destinationDirectory, incomingPort=None):
-    self._destinationDirectory = destinationDirectory
+    self.destinationDirectory = destinationDirectory
     self._directoryObserver = TimeoutDirectoryObserver(destinationDirectory)
     self._connectEvents()
     self._storeSCPProcess = None
@@ -457,7 +457,7 @@ class SmartDICOMReceiver(ModuleLogicMixin):
 
   def _startStoreSCP(self):
     self.stopStoreSCP()
-    self._storeSCPProcess = DICOMStoreSCPProcess(incomingDataDir=self._destinationDirectory,
+    self._storeSCPProcess = DICOMStoreSCPProcess(incomingDataDir=self.destinationDirectory,
                                                  incomingPort=self._incomingPort)
     self._storeSCPProcess.start()
 

@@ -2,12 +2,12 @@ import vtk
 import qt
 import slicer
 from helpers import WindowLevelEffect
-from mixins import ParameterNodeObservationMixin, ModuleWidgetMixin
-from widgets import SettingsMessageBox
+from mixins import ModuleWidgetMixin, GeneralModuleMixin
+from widgets import SettingsMessageBox, DICOMConnectionTestWidget
 from icons import Icons
 
 
-class BasicIconButton(qt.QPushButton):
+class BasicIconButton(qt.QPushButton, GeneralModuleMixin):
   """ Base class for icon based qt.QPushButton
 
   Args:
@@ -23,12 +23,29 @@ class BasicIconButton(qt.QPushButton):
       raise ValueError("_ICON needs to be defined by subclasses")
     self.setIcon(self._ICON)
     self._connectSignals()
+    self._processKwargs(**kwargs)
 
   def _connectSignals(self):
     self.destroyed.connect(self._onAboutToBeDestroyed)
 
   def _onAboutToBeDestroyed(self, obj):
     obj.destroyed.disconnect(self._onAboutToBeDestroyed)
+
+
+class DICOMConnectionTestButton(BasicIconButton):
+
+  _ICON = Icons.connection
+
+  def __init__(self, text="", parent=None, **kwargs):
+    BasicIconButton.__init__(self, text, parent, **kwargs)
+
+  def _connectSignals(self):
+    super(DICOMConnectionTestButton, self)._connectSignals()
+    self.clicked.connect(self.__onClicked)
+
+  def __onClicked(self):
+    dicomTestWidget = DICOMConnectionTestWidget()
+    dicomTestWidget.show()
 
 
 class CheckableIconButton(BasicIconButton):
@@ -223,7 +240,7 @@ class SideBySideLayoutButton(LayoutButton):
     self.toolTip = "Side by Side Layout"
 
 
-class CrosshairButton(CheckableIconButton, ParameterNodeObservationMixin):
+class CrosshairButton(CheckableIconButton):
   """ Represents a button for enabling/disabling crosshair for better slice view coordination.
 
   Args:
