@@ -8,7 +8,7 @@ set(EXTENSION_HOMEPAGE "http://wiki.slicer.org/slicerWiki/index.php/Documentatio
 set(EXTENSION_CATEGORY "Informatics Utilities 'Developer Tools'")
 set(EXTENSION_CONTRIBUTORS "Christian Herz (Brigham and Women's Hospital), Andrey Fedorov (Brigham and Women's Hospital)")
 set(EXTENSION_DESCRIPTION "SlicerDevelopmentToolbox extension facilitates the development process of modules/extensions with a large variety of widgets, helpers, decorators, events, constants and mixin classes")
-set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki/images/8/87/SlicerDevelopmentToolbox_Logo_1.0_128x128.png")
+set(EXTENSION_ICONURL "http://raw.githubusercontent.com/QIICR/SlicerDevelopmentToolbox/master/Resources/Icons/SlicerDevelopmentToolbox.png")
 set(EXTENSION_SCREENSHOTURLS "")
 
 #-----------------------------------------------------------------------------
