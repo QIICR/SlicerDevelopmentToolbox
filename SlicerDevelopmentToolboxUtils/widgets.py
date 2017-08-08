@@ -191,8 +191,9 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self._processKwargs(**kwargs)
     self._connectedButtons = []
     self._modifiedEventObserverTag = None
-    self._selectionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSelectionNodeSingleton")
-    self._interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+    self._selectionNode = slicer.app.applicationLogic().GetSelectionNode()
+    self._selectionNode.SetReferenceActivePlaceNodeClassName("vtkMRMLMarkupsFiducialNode")
+    self._interactionNode = slicer.app.applicationLogic().GetInteractionNode()
     self._setupIcons()
     self._setup()
     self._currentNode = None
@@ -207,7 +208,8 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     """ Enters the fiducial/target placement mode. """
     if not self.currentNode:
       self._createNewFiducialNode(name=self.DEFAULT_FIDUCIAL_LIST_NAME)
-    self._selectionNode.SetReferenceActivePlaceNodeID(self.currentNode.GetID())
+
+    self._selectionNode.SetActivePlaceNodeID(self.currentNode.GetID())
     self._interactionNode.SetPlaceModePersistence(1)
     self._interactionNode.SetCurrentInteractionMode(self._interactionNode.Place)
 
