@@ -1452,10 +1452,7 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     self.relatedUIElements[self.currentSegmentationNodeSelector] = self.currentSegmentsTableView
 
     self.currentToOtherButton = self.createButton("+>", enabled=False)
-    self.currentToOtherButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
-
     self.otherToCurrentButton = self.createButton("<+", enabled=False)
-    self.otherToCurrentButton.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
 
     self.otherSegmentationNodeSelector = self._createSegmentationNodeSelector()
     self.otherSegmentsTableView = self._createSegmentsTableView()
@@ -1472,6 +1469,15 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     self.layout().addWidget(self.infoLabel, 3, 0, 1, 3)
 
     self._setupConnections()
+
+  def createButton(self, title, **kwargs):
+    button = qt.QToolButton()
+    button.text = title
+    button.setCursor(qt.Qt.PointingHandCursor)
+    button = self.extendQtGuiElementProperties(button, **kwargs)
+    button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
+    return button
+
 
   def _createSegmentationNodeSelector(self):
     return self.createComboBox(nodeTypes=["vtkMRMLSegmentationNode", ""],showChildNodeTypes=False,
