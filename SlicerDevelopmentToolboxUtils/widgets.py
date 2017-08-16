@@ -1559,7 +1559,7 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     return True
 
   def setCurrentSegmentationNode(self, segmentationNode):
-    if segmentationNode and not isinstance(segmentationNode, vtk.vtkMRMLSegmentationNode):
+    if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
       raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
 
     self.currentSegmentationNodeSelector.setCurrentNode(segmentationNode)
@@ -1646,7 +1646,7 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
     return True
 
   def setSegmentationNode(self, segmentationNode):
-    if segmentationNode and not isinstance(segmentationNode, vtk.vtkMRMLSegmentationNode):
+    if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
       raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
 
     self.segmentationNodeSelector.setCurrentNode(segmentationNode)
