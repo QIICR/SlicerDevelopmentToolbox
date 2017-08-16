@@ -1,7 +1,6 @@
 import datetime
 import logging
 import os
-import sys
 import xml.dom
 
 import ctk
@@ -1417,3 +1416,237 @@ class DICOMConnectionTestWidget(qt.QDialog, ModuleWidgetMixin):
         pass
       finally:
         self.__dicomReceiver = None
+
+
+class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
+  """ This widget can be used to move/copy segments between two segmentations or import labelmaps into a segmentation
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.widgets import CopySegmentBetweenSegmentationsWidget
+
+    w = CopySegmentBetweenSegmentationsWidget()
+
+    w.show()
+
+  """
+
+  @property
+  def currentSegmentationNodeSelectorEnabled(self):
+    return self.currentSegmentationNodeSelector.enabled
+
+  @currentSegmentationNodeSelectorEnabled.setter
+  def currentSegmentationNodeSelectorEnabled(self, enabled):
+    self.currentSegmentationNodeSelector.enabled = enabled
+
+  def __init__(self, parent=None):
+    qt.QWidget.__init__(self, parent)
+    self.setup()
+
+  def setup(self):
+    self.setLayout(qt.QGridLayout())
+
+    self.relatedUIElements = {}
+    self.currentSegmentationNodeSelector = self._createSegmentationNodeSelector()
+    self.currentSegmentsTableView = self._createSegmentsTableView()
+    self.relatedUIElements[self.currentSegmentationNodeSelector] = self.currentSegmentsTableView
+
+    self.currentToOtherButton = self.createButton("+>", enabled=False)
+    self.otherToCurrentButton = self.createButton("<+", enabled=False)
+
+    self.otherSegmentationNodeSelector = self._createSegmentationNodeSelector()
+    self.otherSegmentsTableView = self._createSegmentsTableView()
+    self.relatedUIElements[self.otherSegmentationNodeSelector] = self.otherSegmentsTableView
+
+    self.infoLabel = self.createLabel("", enabled=False)
+
+    self.layout().addWidget(self.currentSegmentationNodeSelector, 0, 0)
+    self.layout().addWidget(self.otherSegmentationNodeSelector, 0, 2)
+    self.layout().addWidget(self.currentSegmentsTableView, 1, 0, 2, 1)
+    self.layout().addWidget(self.otherToCurrentButton, 1, 1)
+    self.layout().addWidget(self.otherSegmentsTableView, 1, 2, 2, 1)
+    self.layout().addWidget(self.currentToOtherButton, 2, 1)
+    self.layout().addWidget(self.infoLabel, 3, 0, 1, 3)
+
+    self._setupConnections()
+
+  def createButton(self, title, **kwargs):
+    button = qt.QToolButton()
+    button.text = title
+    button.setCursor(qt.Qt.PointingHandCursor)
+    button = self.extendQtGuiElementProperties(button, **kwargs)
+    button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
+    return button
+
+
+  def _createSegmentationNodeSelector(self):
+    return self.createComboBox(nodeTypes=["vtkMRMLSegmentationNode", ""],showChildNodeTypes=False,
+                               selectNodeUponCreation=False, toolTip="Select Segmentation")
+
+  def _createSegmentsTableView(self):
+    tableView = slicer.qMRMLSegmentsTableView()
+    tableView.setHeaderVisible(False)
+    tableView.setVisibilityColumnVisible(False)
+    tableView.setOpacityColumnVisible(False)
+    tableView.setColorColumnVisible(False)
+    tableView.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
+    tableView.SegmentsTableMessageLabel.hide()
+    return tableView
+
+  def _setupConnections(self):
+    self.currentSegmentationNodeSelector.connect('currentNodeChanged(vtkMRMLNode*)',
+                                         lambda node: self._onSegmentationSelected(self.currentSegmentationNodeSelector,
+                                                                                   node,
+                                                                                   self.otherSegmentationNodeSelector))
+    self.otherSegmentationNodeSelector.connect('currentNodeChanged(vtkMRMLNode*)',
+                                         lambda node: self._onSegmentationSelected(self.otherSegmentationNodeSelector,
+                                                                                   node,
+                                                                                   self.currentSegmentationNodeSelector))
+
+    self.currentSegmentsTableView.selectionChanged.connect(lambda selected,deselected: self.updateButtons())
+    self.otherSegmentsTableView.selectionChanged.connect(lambda selected,deselected: self.updateButtons())
+
+    self.currentToOtherButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(True, False))
+    self.otherToCurrentButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(False, False))
+
+
+  def _onSegmentationSelected(self, selector, node, contrary):
+    tableView = self.relatedUIElements[selector]
+    message = ""
+    if node and node is contrary.currentNode():
+      node = None
+      message = "Warning: Cannot have the same segmentation selected on both sides"
+    selector.setCurrentNode(node)
+    tableView.setSegmentationNode(node)
+    tableView.SegmentsTableMessageLabel.hide()
+    self.infoLabel.setText(message)
+    self.updateButtons()
+
+  def updateButtons(self):
+    valid = self.currentSegmentationNodeSelector.currentNode() and self.otherSegmentationNodeSelector.currentNode()
+    self.currentToOtherButton.enabled = valid and len(self.currentSegmentsTableView.selectedSegmentIDs())
+    self.otherToCurrentButton.enabled = valid and len(self.otherSegmentsTableView.selectedSegmentIDs())
+
+  def _copySegmentsBetweenSegmentations(self, copyFromCurrentSegmentation, removeFromSource):
+
+    currentSegmentationNode = self.currentSegmentationNodeSelector.currentNode()
+    otherSegmentationNode = self.otherSegmentationNodeSelector.currentNode()
+
+    if not (currentSegmentationNode and otherSegmentationNode):
+      logging.info("Current and other segmentation node needs to be selected")
+      return
+
+    if copyFromCurrentSegmentation:
+      sourceSegmentation = currentSegmentationNode.GetSegmentation()
+      targetSegmentation = otherSegmentationNode.GetSegmentation()
+      otherSegmentationNode.CreateDefaultDisplayNodes()
+      selectedSegmentIds = self.currentSegmentsTableView.selectedSegmentIDs()
+    else:
+      sourceSegmentation = otherSegmentationNode.GetSegmentation()
+      targetSegmentation = currentSegmentationNode.GetSegmentation()
+      currentSegmentationNode.CreateDefaultDisplayNodes()
+      selectedSegmentIds = self.otherSegmentsTableView.selectedSegmentIDs()
+
+    if not len(selectedSegmentIds):
+      logging.warn("No segments are selected")
+      return False
+
+    for segmentID in selectedSegmentIds:
+      if not targetSegmentation.CopySegmentFromSegmentation(sourceSegmentation, segmentID, removeFromSource):
+        raise RuntimeError("Segment %s could not be copied from segmentation %s tp %s " %(segmentID,
+                                                                                          sourceSegmentation.GetName(),
+                                                                                          targetSegmentation.GetName()))
+    return True
+
+  def setCurrentSegmentationNode(self, segmentationNode):
+    if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
+      raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
+
+    self.currentSegmentationNodeSelector.setCurrentNode(segmentationNode)
+
+
+class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
+  """ This widget provides functionality for importing from a labelmap into a segmentation
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.widgets import ImportLabelMapIntoSegmentationWidget
+
+    w = ImportLabelMapIntoSegmentationWidget()
+    w.segmentationNodeSelectorVisible = False
+
+    w.show()
+
+  """
+
+  @property
+  def segmentationNodeSelectorVisible(self):
+    return self.segmentationNodeSelector.visible
+
+  @segmentationNodeSelectorVisible.setter
+  def segmentationNodeSelectorVisible(self, visible):
+    self.segmentationNodeSelector.visible = visible
+    self.segmentationLabel.visible = visible
+
+  def __init__(self, parent=None):
+    qt.QWidget.__init__(self, parent)
+    self.setup()
+
+  def setup(self):
+    self.setLayout(qt.QFormLayout())
+    self.segmentationLabel = qt.QLabel("Destination segmentation")
+    self.segmentationNodeSelector = self.createComboBox(nodeTypes=["vtkMRMLSegmentationNode", ""], showChildNodeTypes=False,
+                                                        addEnabled=False, removeEnabled=False, noneEnabled=True,
+                                                        selectNodeUponCreation=False, toolTip="Select segmentation "
+                                                                                              "to import into")
+
+    self.labelMapSelector = self.createComboBox(nodeTypes=["vtkMRMLLabelMapVolumeNode", ""], showChildNodeTypes=False,
+                                                addEnabled=False, removeEnabled=False, noneEnabled=True,
+                                                selectNodeUponCreation=False, toolTip="Select labelmap to import from")
+
+    self.importButton = self.createButton("Import", enabled=False)
+
+    self.layout().addRow(self.segmentationLabel, self.segmentationNodeSelector)
+    self.layout().addRow(qt.QLabel("Input labelmap:"), self.labelMapSelector)
+    self.layout().addRow(self.importButton)
+
+
+    self._setupConnections()
+
+  def _setupConnections(self):
+    self.segmentationNodeSelector.connect('currentNodeChanged(vtkMRMLNode*)',
+                                          lambda node: self._updateButtonAvailability())
+    self.labelMapSelector.connect('currentNodeChanged(vtkMRMLNode*)', lambda node: self._updateButtonAvailability())
+    self.importButton.clicked.connect(self._onImportButtonClicked)
+
+  def _updateButtonAvailability(self):
+    self.importButton.setEnabled(self.labelMapSelector.currentNode() and self.segmentationNodeSelector.currentNode())
+
+  def _onImportButtonClicked(self):
+    logging.debug("Starting import labelmap %s into segmentation %s" %(self.labelMapSelector.currentNode().GetName(),
+                                                                       self.segmentationNodeSelector.currentNode().GetName()))
+
+    currentSegmentationNode = self.segmentationNodeSelector.currentNode()
+    labelmapNode = self.labelMapSelector.currentNode()
+
+    currentSegmentationNode.CreateDefaultDisplayNodes()
+
+    segmentationsLogic = slicer.modules.segmentations.logic()
+
+    slicer.app.setOverrideCursor(qt.QCursor(qt.Qt.BusyCursor))
+    success = segmentationsLogic.ImportLabelmapToSegmentationNode(labelmapNode, currentSegmentationNode)
+    slicer.app.restoreOverrideCursor()
+
+    if not success:
+      message = "Failed to copy labels from labelmap volume node %s!" % labelmapNode.GetName()
+      logging.error(message)
+
+      slicer.util.warningDisplay("Failed to import from labelmap volume")
+      return False
+    return True
+
+  def setSegmentationNode(self, segmentationNode):
+    if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
+      raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
+
+    self.segmentationNodeSelector.setCurrentNode(segmentationNode)
