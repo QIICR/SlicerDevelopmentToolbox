@@ -1451,8 +1451,15 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     self.currentSegmentsTableView = self._createSegmentsTableView()
     self.relatedUIElements[self.currentSegmentationNodeSelector] = self.currentSegmentsTableView
 
-    self.currentToOtherButton = self.createButton("+>", enabled=False)
-    self.otherToCurrentButton = self.createButton("<+", enabled=False)
+    iconSize = qt.QSize(36,36)
+    self.moveCurrentToOtherButton = self.createButton("", toolTip="Move segment", icon=Icons.move_to_right,
+                                                      iconSize=iconSize, enabled=False)
+    self.copyCurrentToOtherButton = self.createButton("", toolTip="Copy segment", icon=Icons.copy_to_right,
+                                                      iconSize=iconSize, enabled=False)
+    self.copyOtherToCurrentButton = self.createButton("", toolTip="Copy segment", icon=Icons.copy_to_left,
+                                                      iconSize=iconSize, enabled=False)
+    self.moveOtherToCurrentButton = self.createButton("", toolTip="Move segment", icon=Icons.move_to_left,
+                                                      iconSize=iconSize, enabled=False)
 
     self.otherSegmentationNodeSelector = self._createSegmentationNodeSelector()
     self.otherSegmentsTableView = self._createSegmentsTableView()
@@ -1462,11 +1469,13 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
 
     self.layout().addWidget(self.currentSegmentationNodeSelector, 0, 0)
     self.layout().addWidget(self.otherSegmentationNodeSelector, 0, 2)
-    self.layout().addWidget(self.currentSegmentsTableView, 1, 0, 2, 1)
-    self.layout().addWidget(self.otherToCurrentButton, 1, 1)
-    self.layout().addWidget(self.otherSegmentsTableView, 1, 2, 2, 1)
-    self.layout().addWidget(self.currentToOtherButton, 2, 1)
-    self.layout().addWidget(self.infoLabel, 3, 0, 1, 3)
+    self.layout().addWidget(self.currentSegmentsTableView, 1, 0, 4, 1)
+    self.layout().addWidget(self.otherSegmentsTableView, 1, 2, 4, 1)
+    self.layout().addWidget(self.copyCurrentToOtherButton, 1, 1)
+    self.layout().addWidget(self.moveCurrentToOtherButton, 2, 1)
+    self.layout().addWidget(self.copyOtherToCurrentButton, 3, 1)
+    self.layout().addWidget(self.moveOtherToCurrentButton, 4, 1)
+    self.layout().addWidget(self.infoLabel, 5, 0, 1, 3)
 
     self._setupConnections()
 
@@ -1503,12 +1512,13 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
                                                                                    node,
                                                                                    self.currentSegmentationNodeSelector))
 
-    self.currentSegmentsTableView.selectionChanged.connect(lambda selected,deselected: self.updateButtons())
-    self.otherSegmentsTableView.selectionChanged.connect(lambda selected,deselected: self.updateButtons())
+    self.currentSegmentsTableView.selectionChanged.connect(lambda selected, deselected: self.updateView())
+    self.otherSegmentsTableView.selectionChanged.connect(lambda selected, deselected: self.updateView())
 
-    self.currentToOtherButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(True, False))
-    self.otherToCurrentButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(False, False))
-
+    self.copyCurrentToOtherButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(True, False))
+    self.copyOtherToCurrentButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(False, False))
+    self.moveCurrentToOtherButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(True, True))
+    self.moveOtherToCurrentButton.clicked.connect(lambda: self._copySegmentsBetweenSegmentations(False, True))
 
   def _onSegmentationSelected(self, selector, node, contrary):
     tableView = self.relatedUIElements[selector]
@@ -1520,12 +1530,16 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     tableView.setSegmentationNode(node)
     tableView.SegmentsTableMessageLabel.hide()
     self.infoLabel.setText(message)
-    self.updateButtons()
+    self.updateView()
 
-  def updateButtons(self):
+  def updateView(self):
     valid = self.currentSegmentationNodeSelector.currentNode() and self.otherSegmentationNodeSelector.currentNode()
-    self.currentToOtherButton.enabled = valid and len(self.currentSegmentsTableView.selectedSegmentIDs())
-    self.otherToCurrentButton.enabled = valid and len(self.otherSegmentsTableView.selectedSegmentIDs())
+    self.copyCurrentToOtherButton.enabled = valid and len(self.currentSegmentsTableView.selectedSegmentIDs())
+    self.copyOtherToCurrentButton.enabled = valid and len(self.otherSegmentsTableView.selectedSegmentIDs())
+    self.moveCurrentToOtherButton.enabled = valid and len(self.currentSegmentsTableView.selectedSegmentIDs())
+    self.moveOtherToCurrentButton.enabled = valid and len(self.otherSegmentsTableView.selectedSegmentIDs())
+    self.currentSegmentsTableView.SegmentsTableMessageLabel.hide()
+    self.otherSegmentsTableView.SegmentsTableMessageLabel.hide()
 
   def _copySegmentsBetweenSegmentations(self, copyFromCurrentSegmentation, removeFromSource):
 
