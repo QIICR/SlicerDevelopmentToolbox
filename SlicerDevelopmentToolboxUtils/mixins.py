@@ -437,6 +437,11 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     width = fm.width(text)
     return width
 
+  def hideAllSegmentations(self):
+    segmentations = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+    for segmentation in [segmentations.GetItemAsObject(idx) for idx in range(0, segmentations.GetNumberOfItems())]:
+      segmentation.SetDisplayVisibility(False)
+
 
 class ModuleLogicMixin(GeneralModuleMixin):
 
@@ -796,11 +801,18 @@ class ModuleLogicMixin(GeneralModuleMixin):
     return any(item in string for item in listItem)
 
   @staticmethod
-  def smoothSegmentation(label, labelNumber=None):
-    params = {
-      'inputImageName': label.GetID(),
-      'outputImageName': label.GetID()
-    }
-    if labelNumber:
-      params['labelNumber'] = labelNumber
-    slicer.cli.run(slicer.modules.segmentationsmoothing, None, params, wait_for_completion=True)
+  def getReferencedVolumeFromSegmentationNode(segmentationNode):
+    if not segmentationNode:
+      return None
+    return segmentationNode.GetNodeReference(segmentationNode.GetReferenceImageGeometryReferenceRole())
+
+  @staticmethod
+  def runBRAINSResample(inputVolume, referenceVolume, outputVolume, warpTransform=None):
+    params = {'inputVolume': inputVolume, 'referenceVolume': referenceVolume, 'outputVolume': outputVolume,
+              'interpolationMode': 'NearestNeighbor', 'pixelType':'short'}
+    if warpTransform:
+      params['warpTransform'] = warpTransform
+
+    logging.debug('About to run BRAINSResample CLI with those params: %s' % params)
+    slicer.cli.run(slicer.modules.brainsresample, None, params, wait_for_completion=True)
+    slicer.mrmlScene.AddNode(outputVolume)
