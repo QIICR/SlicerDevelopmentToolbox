@@ -53,9 +53,10 @@ class CustomStatusProgressbar(qt.QWidget):
   @busy.setter
   def busy(self, busy):
     if busy:
-      self._oldMinimum = self.progress.minimum
-      self._oldMaximum = self.progress.maximum
-      self.progress.maximum = self.progress.minimum = 0
+      if not (self.progress.minimum == 0 and self.progress.maximum == 0):
+        self._oldMinimum = self.progress.minimum
+        self._oldMaximum = self.progress.maximum
+        self.progress.maximum = self.progress.minimum = 0
     else:
       self.progress.minimum = getattr(self, "_oldMinimum", 0)
       self.progress.maximum = getattr(self, "_oldMaximum", 100)
@@ -64,6 +65,7 @@ class CustomStatusProgressbar(qt.QWidget):
   def __init__(self, parent=None, **kwargs):
     qt.QWidget.__init__(self, parent, **kwargs)
     self.setup()
+    self.reset()
 
   def setup(self):
     self.textLabel = qt.QLabel()
