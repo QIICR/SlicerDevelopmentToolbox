@@ -385,6 +385,8 @@ class SmartDICOMReceiver(ModuleLogicMixin):
 
   _NAME = "SmartDICOMReceiver"
   _STATUS_RECEIVING = "{}: Receiving DICOM data".format(_NAME)
+  _STATUS_WAITING = "{}: Waiting for incoming DICOM data".format(_NAME)
+  _STATUS_WAITING_WITHOUT_STORE_SCP = "{}: Watching incoming data directory only (no storescp running)".format(_NAME)
   _STATUS_STOPPED = "{}: Stopped DICOM receiver".format(_NAME)
 
   StatusChangedEvent = SlicerDevelopmentToolboxEvents.StatusChangedEvent
@@ -482,8 +484,7 @@ class SmartDICOMReceiver(ModuleLogicMixin):
   def _refreshCurrentStatus(self):
     statusText = ""
     if self._running:
-      statusText = "{}: Waiting for incoming DICOM data".format(self._NAME) if self._storeSCPProcess else \
-                   "{}: Watching incoming data directory only (no storescp running)".format(self._NAME)
+      statusText = self._STATUS_WAITING if self._storeSCPProcess else self._STATUS_WAITING_WITHOUT_STORE_SCP
     self._updateStatus(statusText)
 
 
