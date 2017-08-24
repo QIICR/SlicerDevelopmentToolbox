@@ -1738,10 +1738,10 @@ class SliceWidgetConfirmYesNoMessageBox(SliceWidgetMessageBoxBase):
 
   def __init__(self, widgetName, text="", parent=None, **kwargs):
     super(SliceWidgetConfirmYesNoMessageBox, self).__init__(widgetName, text, parent,
-                                                            standardButtons=qt.QMessageBox.Yes | qt.QMessageBox.No,
-                                                            **kwargs)
+                                                            standardButtons=qt.QMessageBox.Yes | qt.QMessageBox.No |
+                                                                            qt.QMessageBox.Cancel, **kwargs)
 
   def exec_(self):
     widget = self.layoutManager.sliceWidget(self.widgetName)
     self.sliceWidget.setFixedSize(widget.size)
-    return qt.QMessageBox.Yes == qt.QMessageBox.exec_(self)
+    return qt.QMessageBox.exec_(self)
