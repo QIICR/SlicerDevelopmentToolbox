@@ -1605,6 +1605,7 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
   def __init__(self, parent=None):
     qt.QWidget.__init__(self, parent)
     self.setup()
+    self.volumesLogic = slicer.modules.volumes.logic()
 
   def setup(self):
     self.setLayout(qt.QFormLayout())
@@ -1637,11 +1638,29 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
     self.importButton.setEnabled(self.labelMapSelector.currentNode() and self.segmentationNodeSelector.currentNode())
 
   def _onImportButtonClicked(self):
-    logging.debug("Starting import labelmap %s into segmentation %s" %(self.labelMapSelector.currentNode().GetName(),
-                                                                       self.segmentationNodeSelector.currentNode().GetName()))
-
     currentSegmentationNode = self.segmentationNodeSelector.currentNode()
     labelmapNode = self.labelMapSelector.currentNode()
+
+    logging.debug("Starting import labelmap %s into segmentation %s" %(labelmapNode.GetName(),
+                                                                       currentSegmentationNode.GetName()))
+
+    masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(currentSegmentationNode)
+
+    if not masterVolume:
+      raise ValueError("No referenced master volume found for %s" % currentSegmentationNode.GetName())
+
+    warnings = self.volumesLogic.CheckForLabelVolumeValidity(masterVolume, labelmapNode)
+    if warnings != "":
+      if slicer.util.confirmYesNoDisplay("Geometry of master and label do not match. Do you want to resample the "
+                                         "label?", detailedText=warnings):
+        outputLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+        outputLabel.SetName(labelmapNode.GetName() + "_resampled")
+        ModuleLogicMixin.runBRAINSResample(inputVolume=labelmapNode, referenceVolume=masterVolume,
+                                           outputVolume=outputLabel)
+        labelmapNode = outputLabel
+        self.labelMapSelector.setCurrentNode(outputLabel)
+      else:
+        return False
 
     currentSegmentationNode.CreateDefaultDisplayNodes()
 
