@@ -53,9 +53,10 @@ class CustomStatusProgressbar(qt.QWidget):
   @busy.setter
   def busy(self, busy):
     if busy:
-      self._oldMinimum = self.progress.minimum
-      self._oldMaximum = self.progress.maximum
-      self.progress.maximum = self.progress.minimum = 0
+      if not (self.progress.minimum == 0 and self.progress.maximum == 0):
+        self._oldMinimum = self.progress.minimum
+        self._oldMaximum = self.progress.maximum
+        self.progress.maximum = self.progress.minimum = 0
     else:
       self.progress.minimum = getattr(self, "_oldMinimum", 0)
       self.progress.maximum = getattr(self, "_oldMaximum", 100)
@@ -64,6 +65,7 @@ class CustomStatusProgressbar(qt.QWidget):
   def __init__(self, parent=None, **kwargs):
     qt.QWidget.__init__(self, parent, **kwargs)
     self.setup()
+    self.reset()
 
   def setup(self):
     self.textLabel = qt.QLabel()
@@ -1683,3 +1685,63 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
       raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
 
     self.segmentationNodeSelector.setCurrentNode(segmentationNode)
+
+
+class SliceWidgetMessageBoxBase(qt.QMessageBox, ModuleWidgetMixin):
+  """ This class represents the base of a slice widget based message box
+
+    .. code-block:: python
+
+      from SlicerDevelopmentToolboxUtils.widgets import SliceWidgetMessageBoxBase
+
+      w = SliceWidgetMessageBoxBase("Red")
+      w.exec_()
+  """
+
+  def __init__(self, widgetName, text="", parent=None, **kwargs):
+    qt.QMessageBox.__init__(self, parent if parent else slicer.util.mainWindow())
+    self.widgetName = widgetName
+    self.text = text
+    for key, value in kwargs.iteritems():
+      if hasattr(self, key):
+        setattr(self, key, value)
+    self.setup()
+
+  def setup(self):
+    widget = self.layoutManager.sliceWidget(self.widgetName)
+    if not widget:
+      raise AttributeError("Slice widget with name %s not found" %self.widgetName)
+    sliceNode = widget.sliceLogic().GetSliceNode()
+
+    self.sliceWidget = slicer.qMRMLSliceWidget()
+    self.sliceWidget.setMRMLScene(widget.mrmlScene())
+    self.sliceWidget.setMRMLSliceNode(sliceNode)
+
+    self.layout().addWidget(self.sliceWidget, 0, 1)
+    self.layout().addWidget(qt.QLabel(self.text), 1 ,1)
+    self.layout().addWidget(self.createHLayout(self.buttons()), 2, 1)
+
+  def exec_(self):
+    raise NotImplementedError
+
+
+class SliceWidgetConfirmYesNoMessageBox(SliceWidgetMessageBoxBase):
+  """ SliceWidgetConfirmYesNoMessageBox for displaying a slice widget with a specific question to confirm
+
+    .. code-block:: python
+
+      from SlicerDevelopmentToolboxUtils.widgets import SliceWidgetConfirmYesNoMessageBox
+
+      w = SliceWidgetConfirmYesNoMessageBox("Red", "Some random text")
+      w.exec_()
+  """
+
+  def __init__(self, widgetName, text="", parent=None, **kwargs):
+    super(SliceWidgetConfirmYesNoMessageBox, self).__init__(widgetName, text, parent,
+                                                            standardButtons=qt.QMessageBox.Yes | qt.QMessageBox.No |
+                                                                            qt.QMessageBox.Cancel, **kwargs)
+
+  def exec_(self):
+    widget = self.layoutManager.sliceWidget(self.widgetName)
+    self.sliceWidget.setFixedSize(widget.size)
+    return qt.QMessageBox.exec_(self)

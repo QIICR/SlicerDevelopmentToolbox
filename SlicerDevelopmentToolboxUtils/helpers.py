@@ -385,6 +385,9 @@ class SmartDICOMReceiver(ModuleLogicMixin):
 
   _NAME = "SmartDICOMReceiver"
   _STATUS_RECEIVING = "{}: Receiving DICOM data".format(_NAME)
+  _STATUS_WAITING = "{}: Waiting for incoming DICOM data".format(_NAME)
+  _STATUS_WAITING_WITHOUT_STORE_SCP = "{}: Watching incoming data directory only (no storescp running)".format(_NAME)
+  _STATUS_STOPPED = "{}: Stopped DICOM receiver".format(_NAME)
 
   StatusChangedEvent = SlicerDevelopmentToolboxEvents.StatusChangedEvent
   """ Invoked whenever status is updated """
@@ -403,16 +406,13 @@ class SmartDICOMReceiver(ModuleLogicMixin):
     self._connectEvents()
     self._storeSCPProcess = None
     self._incomingPort = None if not incomingPort else int(incomingPort)
-    self.reset()
+    self._running = False
+    self.currentStatus = ""
     slicer.app.connect('aboutToQuit()', self.stop)
 
   def __del__(self):
     self.stop()
     super(SmartDICOMReceiver, self).__del__()
-
-  def reset(self):
-    self.currentStatus = ""
-    self._running = False
 
   def isRunning(self):
     """ Returns state if SmartDICOMReceiver is currently running
@@ -441,7 +441,7 @@ class SmartDICOMReceiver(ModuleLogicMixin):
     if self._running:
       self._directoryObserver.stop()
       self.stopStoreSCP()
-      self.reset()
+      self._updateStatus(self._STATUS_STOPPED)
       self.invokeEvent(self.StoppedEvent)
 
   def stopStoreSCP(self):
@@ -484,8 +484,7 @@ class SmartDICOMReceiver(ModuleLogicMixin):
   def _refreshCurrentStatus(self):
     statusText = ""
     if self._running:
-      statusText = "{}: Waiting for incoming DICOM data".format(self._NAME) if self._storeSCPProcess else \
-                   "{}: Watching incoming data directory only (no storescp running)".format(self._NAME)
+      statusText = self._STATUS_WAITING if self._storeSCPProcess else self._STATUS_WAITING_WITHOUT_STORE_SCP
     self._updateStatus(statusText)
 
 
@@ -679,6 +678,7 @@ class SliceAnnotation(object):
     self.textOpacity = kwargs.pop('opacity', 1.0)
     self.verticalAlign = kwargs.pop('verticalAlign', 'center')
     self.horizontalAlign = kwargs.pop('horizontalAlign', 'center')
+    self.shadowOffset = kwargs.pop('shadowOffset', (1,2))
 
     self._createTextActor()
 
@@ -734,6 +734,7 @@ class SliceAnnotation(object):
     self.textProperty.SetColor(self.textColor)
     self.textProperty.SetBold(self.textBold)
     self.textProperty.SetShadow(self.textShadow)
+    self.textProperty.SetShadowOffset(self.shadowOffset)
     self.textProperty.SetOpacity(self.textOpacity)
     self.textActor.SetTextProperty(self.textProperty)
     self.size = self._initialSize
