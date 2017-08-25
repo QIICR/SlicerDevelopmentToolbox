@@ -1433,6 +1433,9 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
 
   """
 
+  FailedEvent = SlicerDevelopmentToolboxEvents.FailedEvent
+  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
+
   @property
   def currentSegmentationNodeSelectorEnabled(self):
     return self.currentSegmentationNodeSelector.enabled
@@ -1550,6 +1553,7 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
 
     if not (currentSegmentationNode and otherSegmentationNode):
       logging.info("Current and other segmentation node needs to be selected")
+      self.invokeEvent(self.FailedEvent)
       return
 
     if copyFromCurrentSegmentation:
@@ -1565,14 +1569,16 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
 
     if not len(selectedSegmentIds):
       logging.warn("No segments are selected")
-      return False
+      self.invokeEvent(self.FailedEvent)
+      return
 
     for segmentID in selectedSegmentIds:
       if not targetSegmentation.CopySegmentFromSegmentation(sourceSegmentation, segmentID, removeFromSource):
+        self.invokeEvent(self.FailedEvent)
         raise RuntimeError("Segment %s could not be copied from segmentation %s tp %s " %(segmentID,
                                                                                           sourceSegmentation.GetName(),
                                                                                           targetSegmentation.GetName()))
-    return True
+    return self.invokeEvent(self.SuccessEvent)
 
   def setCurrentSegmentationNode(self, segmentationNode):
     if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
@@ -1594,6 +1600,10 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
     w.show()
 
   """
+
+  FailedEvent = SlicerDevelopmentToolboxEvents.FailedEvent
+  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
+  CanceledEvent = SlicerDevelopmentToolboxEvents.CanceledEvent
 
   @property
   def segmentationNodeSelectorVisible(self):
@@ -1662,7 +1672,8 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
         labelmapNode = outputLabel
         self.labelMapSelector.setCurrentNode(outputLabel)
       else:
-        return False
+        self.invokeEvent(self.CanceledEvent)
+        return
 
     currentSegmentationNode.CreateDefaultDisplayNodes()
 
@@ -1677,8 +1688,10 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
       logging.error(message)
 
       slicer.util.warningDisplay("Failed to import from labelmap volume")
-      return False
-    return True
+      self.invokeEvent(self.FailedEvent)
+      return
+
+    self.invokeEvent(self.SuccessEvent)
 
   def setSegmentationNode(self, segmentationNode):
     if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
