@@ -438,8 +438,7 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     return width
 
   def hideAllSegmentations(self):
-    segmentations = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
-    for segmentation in [segmentations.GetItemAsObject(idx) for idx in range(0, segmentations.GetNumberOfItems())]:
+    for segmentation in slicer.util.getNodesByClass('vtkMRMLSegmentationNode'):
       segmentation.SetDisplayVisibility(False)
 
 
