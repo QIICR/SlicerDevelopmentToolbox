@@ -68,16 +68,19 @@ class CustomStatusProgressbar(qt.QWidget):
     self.reset()
 
   def setup(self):
+
     self.textLabel = qt.QLabel()
     self.progress = qt.QProgressBar()
-    self.maximumHeight = slicer.util.mainWindow().statusBar().height
+
+    if slicer.util.mainWindow():
+      self.maximumHeight = slicer.util.mainWindow().statusBar().height
     rowLayout = qt.QHBoxLayout()
     self.setLayout(rowLayout)
     rowLayout.addWidget(self.textLabel, 1)
     rowLayout.addWidget(self.progress, 1)
     self.setStyleSheet(self.STYLE)
     self.refreshProgressVisibility()
-    if not self.parent():
+    if not self.parent() and slicer.util.mainWindow():
       slicer.util.mainWindow().statusBar().addWidget(self, 1)
 
   def updateStatus(self, text, value=None):
@@ -251,7 +254,8 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   def _setupTargetFiducialListSelector(self):
     self.targetListSelector = self.createComboBox(nodeTypes=["vtkMRMLMarkupsFiducialNode", ""], addEnabled=True,
                                                   removeEnabled=True, noneEnabled=True, showChildNodeTypes=False,
-                                                  selectNodeUponCreation=True, toolTip="Select target list")
+                                                  renameEnabled=True, selectNodeUponCreation=True,
+                                                  toolTip="Select target list")
     self.targetListSelectorArea = self.createHLayout([qt.QLabel("Target List: "), self.targetListSelector])
     self.targetListSelectorArea.hide()
     self.layout().addWidget(self.targetListSelectorArea)
