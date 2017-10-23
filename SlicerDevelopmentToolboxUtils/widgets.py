@@ -286,9 +286,10 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
                                                                      self._onInteractionModeChanged)
     self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self._onFiducialListSelected)
     self.table.connect("cellChanged(int,int)", self._onCellChanged)
+    self.table.connect('clicked(QModelIndex)', self._onTargetSelectionChanged)
     self.table.selectionModel().currentRowChanged.connect(self._onTargetSelectionChanged)
 
-  def _onTargetSelectionChanged(self, current, prev):
+  def _onTargetSelectionChanged(self, current, prev=None):
     row = current.row()
     if not self.currentNode or row == -1:
       return
