@@ -68,16 +68,19 @@ class CustomStatusProgressbar(qt.QWidget):
     self.reset()
 
   def setup(self):
+
     self.textLabel = qt.QLabel()
     self.progress = qt.QProgressBar()
-    self.maximumHeight = slicer.util.mainWindow().statusBar().height
+
+    if slicer.util.mainWindow():
+      self.maximumHeight = slicer.util.mainWindow().statusBar().height
     rowLayout = qt.QHBoxLayout()
     self.setLayout(rowLayout)
     rowLayout.addWidget(self.textLabel, 1)
     rowLayout.addWidget(self.progress, 1)
     self.setStyleSheet(self.STYLE)
     self.refreshProgressVisibility()
-    if not self.parent():
+    if not self.parent() and slicer.util.mainWindow():
       slicer.util.mainWindow().statusBar().addWidget(self, 1)
 
   def updateStatus(self, text, value=None):
@@ -251,7 +254,8 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
   def _setupTargetFiducialListSelector(self):
     self.targetListSelector = self.createComboBox(nodeTypes=["vtkMRMLMarkupsFiducialNode", ""], addEnabled=True,
                                                   removeEnabled=True, noneEnabled=True, showChildNodeTypes=False,
-                                                  selectNodeUponCreation=True, toolTip="Select target list")
+                                                  renameEnabled=True, selectNodeUponCreation=True,
+                                                  toolTip="Select target list")
     self.targetListSelectorArea = self.createHLayout([qt.QLabel("Target List: "), self.targetListSelector])
     self.targetListSelectorArea.hide()
     self.layout().addWidget(self.targetListSelectorArea)
@@ -1033,6 +1037,8 @@ class BasicInformationWatchBox(qt.QGroupBox):
     return name
 
   def __init__(self, attributes, title="", parent=None, columns=1):
+    if columns <= 0:
+      raise ValueError("Number of columns cannot be smaller than 1")
     super(BasicInformationWatchBox, self).__init__(title, parent)
     self.attributes = attributes
     self.columns = columns
@@ -1052,14 +1058,19 @@ class BasicInformationWatchBox(qt.QGroupBox):
 
   def _setup(self):
     self.setStyleSheet(self._DEFAULT_STYLE)
-    layout = qt.QGridLayout()
-    self.setLayout(layout)
+    self.setLayout(qt.QGridLayout())
+
+    def addPairAndReturnNewColumn(title, value, row, column):
+      self.layout().addWidget(title, row, column*2, 1, 1, qt.Qt.AlignLeft)
+      self.layout().addWidget(value, row, column*2+1, 1, 1, qt.Qt.AlignLeft)
+      return column+1 if column<self.columns-1 else 0
 
     column = 0
     for index, attribute in enumerate(self.attributes):
-      layout.addWidget(attribute.titleLabel, index/self.columns, column*2, 1, 1, qt.Qt.AlignLeft)
-      layout.addWidget(attribute.valueLabel, index/self.columns, column*2+1, 1, qt.Qt.AlignLeft)
-      column = column+1 if column<self.columns-1 else 0
+      column = addPairAndReturnNewColumn(attribute.titleLabel, attribute.valueLabel, index/self.columns, column)
+
+    while column != 0 and column <= self.columns-1:
+      column = addPairAndReturnNewColumn(qt.QLabel(""), qt.QLabel(""), index/self.columns, column)
 
   def _formatDate(self, dateToFormat):
     if dateToFormat and dateToFormat != "":
