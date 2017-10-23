@@ -265,7 +265,9 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
     self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
     self.table.setMaximumHeight(200)
-    self.table.horizontalHeader().setStretchLastSection(True)
+    self.table.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
+    self.table.horizontalHeader().setResizeMode(0, qt.QHeaderView.Stretch)
+    self.table.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
     self._resetTable()
     self.layout().addWidget(self.table)
 
@@ -284,11 +286,14 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
                                                                      self._onInteractionModeChanged)
     self.targetListSelector.connect("currentNodeChanged(vtkMRMLNode*)", self._onFiducialListSelected)
     self.table.connect("cellChanged(int,int)", self._onCellChanged)
-    self.table.connect('clicked(QModelIndex)', self._onTargetSelectionChanged)
+    self.table.selectionModel().currentRowChanged.connect(self._onTargetSelectionChanged)
 
-  def _onTargetSelectionChanged(self, modelIndex):
+  def _onTargetSelectionChanged(self, current, prev):
+    row = current.row()
+    if not self.currentNode or row == -1:
+      return
     self.invokeEvent(self.TargetSelectedEvent, str({"nodeID": self.currentNode.GetID(),
-                                                    "index": modelIndex.row()}))
+                                                    "index": row}))
 
   def _onInteractionModeChanged(self, caller, event):
     if not self.currentNode:
