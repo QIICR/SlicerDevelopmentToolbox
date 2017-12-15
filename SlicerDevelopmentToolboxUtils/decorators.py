@@ -39,16 +39,19 @@ class logmethod(object):
         cls = args_map['self'].__class__
         className = cls.__name__ + '.'
       try:
-        callerMethod = inspect.stack()[1][0].f_code.co_name
-        callerClass = inspect.stack()[1][0].f_locals["self"].__class__.__name__
+        frame = inspect.stack()[1][0]
+        fileName = frame.f_code.co_filename
+        lineNo = frame.f_lineno
+        callerMethod = frame.f_code.co_name
+        callerClass = frame.f_locals["self"].__class__.__name__
       except (KeyError, IndexError):
-        callerClass = ""
-        callerMethod = ""
+        callerClass = callerMethod = lineNo = fileName = ""
       caller = ""
       if callerClass != "" and callerMethod != "":
         caller = " from {}.{}".format(callerClass, callerMethod)
-      logging.log(self.logLevel, "Called {}{}{} with args {} and kwargs {}".format(className, func.__name__,
-                                                                                   caller, args, kwargs))
+      logging.log(self.logLevel, "Called {}{}{} with args {} and "
+                                 "kwargs {} from file {} line {} ".format(className, func.__name__, caller, args,
+                                                                          kwargs, fileName, lineNo))
       return func(*args, **kwargs)
     return wrapped_f
 
