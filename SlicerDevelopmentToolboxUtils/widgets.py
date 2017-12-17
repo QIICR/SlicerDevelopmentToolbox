@@ -1775,3 +1775,71 @@ class SliceWidgetConfirmYesNoMessageBox(SliceWidgetMessageBoxBase):
     widget = self.layoutManager.sliceWidget(self.widgetName)
     self.sliceWidget.setFixedSize(widget.size)
     return qt.QMessageBox.exec_(self)
+
+
+class RadioButtonChoiceMessageBox(qt.QMessageBox, ModuleWidgetMixin):
+  """ MessageBox for displaying a message box giving the user a choice between different options.
+
+    .. code-block:: python
+
+      from SlicerDevelopmentToolboxUtils.widgets import RadioButtonChoiceMessageBox
+
+      mbox = RadioButtonChoiceMessageBox("Question?", options=["a", "b"])
+      mbox.exec_()
+  """
+  def __init__(self, text, options, *args):
+    assert type(options) in [list, tuple] and len(options) > 1, "Valid types of 'options' are: list or tuple and needs" \
+                                                                "to have at least two options"
+    qt.QMessageBox.__init__(self, *args)
+    self.standardButtons = qt.QMessageBox.Ok | qt.QMessageBox.Cancel
+    self.text = text
+    self.options = options
+    self._setup()
+
+  def __del__(self):
+    super(RadioButtonChoiceMessageBox, self).__del__()
+    for button in self.buttonGroup.buttons():
+      self._disconnectButton(button)
+
+  def show(self):
+    return self.exec_()
+
+  def reject(self):
+    qt.QMessageBox.reject(self)
+
+  def closeEvent(self, event):
+    qt.QMessageBox.closeEvent(self, event)
+    self.reject()
+
+  def exec_(self):
+    self.selectedOption = None
+    self.button(qt.QMessageBox.Ok).enabled = False
+    for b in self.buttonGroup.buttons():
+      self.buttonGroup.setExclusive(False)
+      b.checked = False
+      self.buttonGroup.setExclusive(True)
+    result = qt.QMessageBox.exec_(self)
+    if result == qt.QMessageBox.Ok:
+      return self.selectedOption
+    return None
+
+  def _setup(self):
+    self.buttonGroup = qt.QButtonGroup()
+    for optionId, option in enumerate(self.options):
+      button = self.createRadioButton(option)
+      button.setProperty('value', option)
+      button.setCursor(qt.Qt.PointingHandCursor)
+      self._connectButton(button)
+      self.buttonGroup.addButton(button, optionId)
+    col = self.createVLayout(list(self.buttonGroup.buttons()))
+    self.layout().addWidget(col, 1, 1)
+
+  def _connectButton(self, button):
+    button.clicked.connect(lambda: self._onOptionSelected(button.value))
+
+  def _disconnectButton(self, button):
+    button.clicked.disconnect(lambda: self._onOptionSelected(button.value))
+
+  def _onOptionSelected(self, value):
+    self.selectedOption = value
+    self.button(qt.QMessageBox.Ok).enabled = True
