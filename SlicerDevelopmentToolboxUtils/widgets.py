@@ -1437,7 +1437,65 @@ class DICOMConnectionTestWidget(qt.QDialog, ModuleWidgetMixin):
         self.__dicomReceiver = None
 
 
-class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
+class ImportIntoSegmentationWidgetBase(qt.QWidget, ModuleWidgetMixin):
+
+  StartedEvent = SlicerDevelopmentToolboxEvents.StartedEvent
+  FailedEvent = SlicerDevelopmentToolboxEvents.FailedEvent
+  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
+
+  _LayoutClass = None
+
+  @property
+  def busy(self):
+    return self._busy
+
+  @property
+  def segmentationNodeSelectorVisible(self):
+    return self.segmentationNodeSelector.visible
+
+  @segmentationNodeSelectorVisible.setter
+  def segmentationNodeSelectorVisible(self, visible):
+    self.segmentationNodeSelector.visible = visible
+    self.segmentationLabel.visible = visible
+
+  @property
+  def segmentationNodeSelectorEnabled(self):
+    return self.currentSegmentationNodeSelector.enabled
+
+  @segmentationNodeSelectorEnabled.setter
+  def segmentationNodeSelectorEnabled(self, enabled):
+    self.currentSegmentationNodeSelector.enabled = enabled
+
+  def __init__(self, parent=None):
+    qt.QWidget.__init__(self, parent)
+    self._busy = False
+    self.setup()
+    self._setupConnections()
+
+  def setup(self):
+    self.segmentationNodeSelector = self._createSegmentationNodeSelector()
+    if not self._LayoutClass:
+      raise NotImplementedError
+    self.setLayout(self._LayoutClass())
+
+  def _setupConnections(self):
+    raise NotImplementedError
+
+  def invokeEvent(self, event, callData=None):
+    self._busy = event == self.StartedEvent
+    ModuleWidgetMixin.invokeEvent(self, event, callData)
+
+  def setSegmentationNode(self, segmentationNode):
+    if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
+      raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
+    self.segmentationNodeSelector.setCurrentNode(segmentationNode)
+
+  def _createSegmentationNodeSelector(self):
+    return self.createComboBox(nodeTypes=["vtkMRMLSegmentationNode", ""],showChildNodeTypes=False,
+                               selectNodeUponCreation=False, toolTip="Select Segmentation")
+
+
+class CopySegmentBetweenSegmentationsWidget(ImportIntoSegmentationWidgetBase):
   """ This widget can be used to move/copy segments between two segmentations or import labelmaps into a segmentation
 
   .. code-block:: python
@@ -1450,26 +1508,19 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
 
   """
 
-  FailedEvent = SlicerDevelopmentToolboxEvents.FailedEvent
-  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
+  _LayoutClass = qt.QGridLayout
 
   @property
-  def currentSegmentationNodeSelectorEnabled(self):
-    return self.currentSegmentationNodeSelector.enabled
-
-  @currentSegmentationNodeSelectorEnabled.setter
-  def currentSegmentationNodeSelectorEnabled(self, enabled):
-    self.currentSegmentationNodeSelector.enabled = enabled
+  def currentSegmentationNodeSelector(self):
+    return self.segmentationNodeSelector
 
   def __init__(self, parent=None):
-    qt.QWidget.__init__(self, parent)
-    self.setup()
+    super(CopySegmentBetweenSegmentationsWidget, self).__init__(parent)
 
   def setup(self):
-    self.setLayout(qt.QGridLayout())
+    super(CopySegmentBetweenSegmentationsWidget, self).setup()
 
     self.relatedUIElements = {}
-    self.currentSegmentationNodeSelector = self._createSegmentationNodeSelector()
     self.currentSegmentsTableView = self._createSegmentsTableView()
     self.relatedUIElements[self.currentSegmentationNodeSelector] = self.currentSegmentsTableView
 
@@ -1499,8 +1550,6 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     self.layout().addWidget(self.moveOtherToCurrentButton, 4, 1)
     self.layout().addWidget(self.infoLabel, 5, 0, 1, 3)
 
-    self._setupConnections()
-
   def createButton(self, title, **kwargs):
     button = qt.QToolButton()
     button.text = title
@@ -1508,11 +1557,6 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     button = self.extendQtGuiElementProperties(button, **kwargs)
     button.setSizePolicy(qt.QSizePolicy.Minimum, qt.QSizePolicy.Expanding)
     return button
-
-
-  def _createSegmentationNodeSelector(self):
-    return self.createComboBox(nodeTypes=["vtkMRMLSegmentationNode", ""],showChildNodeTypes=False,
-                               selectNodeUponCreation=False, toolTip="Select Segmentation")
 
   def _createSegmentsTableView(self):
     tableView = slicer.qMRMLSegmentsTableView()
@@ -1564,7 +1608,7 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
     self.otherSegmentsTableView.SegmentsTableMessageLabel.hide()
 
   def _copySegmentsBetweenSegmentations(self, copyFromCurrentSegmentation, removeFromSource):
-
+    self.invokeEvent(self.StartedEvent)
     currentSegmentationNode = self.currentSegmentationNodeSelector.currentNode()
     otherSegmentationNode = self.otherSegmentationNodeSelector.currentNode()
 
@@ -1597,14 +1641,8 @@ class CopySegmentBetweenSegmentationsWidget(qt.QWidget, ModuleWidgetMixin):
                                                                                           targetSegmentation.GetName()))
     return self.invokeEvent(self.SuccessEvent)
 
-  def setCurrentSegmentationNode(self, segmentationNode):
-    if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
-      raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
 
-    self.currentSegmentationNodeSelector.setCurrentNode(segmentationNode)
-
-
-class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
+class ImportLabelMapIntoSegmentationWidget(ImportIntoSegmentationWidgetBase):
   """ This widget provides functionality for importing from a labelmap into a segmentation
 
   .. code-block:: python
@@ -1618,32 +1656,18 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
 
   """
 
-  FailedEvent = SlicerDevelopmentToolboxEvents.FailedEvent
-  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
   CanceledEvent = SlicerDevelopmentToolboxEvents.CanceledEvent
 
-  @property
-  def segmentationNodeSelectorVisible(self):
-    return self.segmentationNodeSelector.visible
-
-  @segmentationNodeSelectorVisible.setter
-  def segmentationNodeSelectorVisible(self, visible):
-    self.segmentationNodeSelector.visible = visible
-    self.segmentationLabel.visible = visible
+  _LayoutClass = qt.QFormLayout
 
   def __init__(self, parent=None):
-    qt.QWidget.__init__(self, parent)
-    self.setup()
+    super(ImportLabelMapIntoSegmentationWidget, self).__init__(parent)
     self.volumesLogic = slicer.modules.volumes.logic()
 
   def setup(self):
-    self.setLayout(qt.QFormLayout())
-    self.segmentationLabel = qt.QLabel("Destination segmentation")
-    self.segmentationNodeSelector = self.createComboBox(nodeTypes=["vtkMRMLSegmentationNode", ""], showChildNodeTypes=False,
-                                                        addEnabled=False, removeEnabled=False, noneEnabled=True,
-                                                        selectNodeUponCreation=False, toolTip="Select segmentation "
-                                                                                              "to import into")
+    super(ImportLabelMapIntoSegmentationWidget, self).setup()
 
+    self.segmentationLabel = qt.QLabel("Destination segmentation")
     self.labelMapSelector = self.createComboBox(nodeTypes=["vtkMRMLLabelMapVolumeNode", ""], showChildNodeTypes=False,
                                                 addEnabled=False, removeEnabled=False, noneEnabled=True,
                                                 selectNodeUponCreation=False, toolTip="Select labelmap to import from")
@@ -1653,9 +1677,6 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
     self.layout().addRow(self.segmentationLabel, self.segmentationNodeSelector)
     self.layout().addRow(qt.QLabel("Input labelmap:"), self.labelMapSelector)
     self.layout().addRow(self.importButton)
-
-
-    self._setupConnections()
 
   def _setupConnections(self):
     self.segmentationNodeSelector.connect('currentNodeChanged(vtkMRMLNode*)',
@@ -1667,6 +1688,7 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
     self.importButton.setEnabled(self.labelMapSelector.currentNode() and self.segmentationNodeSelector.currentNode())
 
   def _onImportButtonClicked(self):
+    self.invokeEvent(self.StartedEvent)
     currentSegmentationNode = self.segmentationNodeSelector.currentNode()
     labelmapNode = self.labelMapSelector.currentNode()
 
@@ -1709,12 +1731,6 @@ class ImportLabelMapIntoSegmentationWidget(qt.QWidget, ModuleWidgetMixin):
       return
 
     self.invokeEvent(self.SuccessEvent)
-
-  def setSegmentationNode(self, segmentationNode):
-    if segmentationNode and not isinstance(segmentationNode, slicer.vtkMRMLSegmentationNode):
-      raise ValueError("The delivered node needs to be a vtkMRMLSegmentationNode")
-
-    self.segmentationNodeSelector.setCurrentNode(segmentationNode)
 
 
 class SliceWidgetMessageBoxBase(qt.QMessageBox, ModuleWidgetMixin):
