@@ -216,6 +216,28 @@ class FourUpTableViewLayoutButton(LayoutButton):
     super(FourUpTableViewLayoutButton, self).__init__(text, parent, **kwargs)
     self.toolTip = "Four-Up Table Layout"
 
+class FourUpPlotViewLayoutButton(LayoutButton):
+  """ LayoutButton inherited class which represents a button for the SlicerLayoutFourUpPlotView including the icon.
+
+  Args:
+    text (str, optional): text to be displayed for the button
+    parent (qt.QWidget, optional): parent of the button
+
+  .. code-block:: python
+
+    from SlicerDevelopmentToolboxUtils.buttons import FourUpPlotViewLayoutButton
+
+    button = FourUpPlotViewLayoutButton()
+    button.show()
+  """
+
+  LAYOUT = slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpPlotView
+
+  def __init__(self, text="", parent=None, **kwargs):
+    self._ICON = Icons.layout_four_up_plot_view
+    super(FourUpPlotViewLayoutButton, self).__init__(text, parent, **kwargs)
+    self.toolTip = "Four-Up Plot Layout"
+
 
 class SideBySideLayoutButton(LayoutButton):
   """ LayoutButton inherited class which represents a button for the SlicerLayoutSideBySideView including the icon.
