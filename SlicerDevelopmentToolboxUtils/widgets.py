@@ -1598,6 +1598,9 @@ class CopySegmentBetweenSegmentationsWidget(ImportIntoSegmentationWidgetBase):
     self.infoLabel.setText(message)
     self.updateView()
 
+  def setCurrentSegmentationNode(self, segmentationNode):
+    super(CopySegmentBetweenSegmentationsWidget, self).setSegmentationNode(segmentationNode)
+
   def updateView(self):
     valid = self.currentSegmentationNodeSelector.currentNode() and self.otherSegmentationNodeSelector.currentNode()
     self.copyCurrentToOtherButton.enabled = valid and len(self.currentSegmentsTableView.selectedSegmentIDs())
