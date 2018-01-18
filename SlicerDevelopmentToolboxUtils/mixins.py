@@ -411,7 +411,8 @@ class ModuleWidgetMixin(GeneralModuleMixin):
         else:
           c.hide()
 
-  def createProgressDialog(self, parent=None, value=0, maximum=100, labelText="", windowTitle="Processing...",
+  @staticmethod
+  def createProgressDialog(parent=None, value=0, maximum=100, labelText="", windowTitle="Processing...",
                            windowFlags=None, **kwargs):
     """Display a modal QProgressDialog. Go to QProgressDialog documentation
     http://pyqt.sourceforge.net/Docs/PyQt4/qprogressdialog.html for more keyword arguments, that could be used.
