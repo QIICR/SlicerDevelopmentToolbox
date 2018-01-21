@@ -1736,64 +1736,85 @@ class ImportLabelMapIntoSegmentationWidget(ImportIntoSegmentationWidgetBase):
     self.invokeEvent(self.SuccessEvent)
 
 
-class SliceWidgetMessageBoxBase(qt.QMessageBox, ModuleWidgetMixin):
-  """ This class represents the base of a slice widget based message box
-
-    .. code-block:: python
-
-      from SlicerDevelopmentToolboxUtils.widgets import SliceWidgetMessageBoxBase
-
-      w = SliceWidgetMessageBoxBase("Red")
-      w.exec_()
+class SliceWidgetDialogBase(qt.QDialog, ModuleWidgetMixin):
+  """ This class represents the base of a slice widget based dialog
   """
 
-  def __init__(self, widgetName, text="", parent=None, **kwargs):
-    qt.QMessageBox.__init__(self, parent if parent else slicer.util.mainWindow())
-    self.widgetName = widgetName
+  def __init__(self, volumeNode, text="", labelNode=None, parent=None, **kwargs):
+    qt.QDialog.__init__(self, parent if parent else slicer.util.mainWindow())
+    self.volumeNode = volumeNode
+    self.labelNode = labelNode
     self.text = text
+    self.standardButtons = None
+    self.clickedButton = None
     for key, value in kwargs.iteritems():
       if hasattr(self, key):
         setattr(self, key, value)
     self.setup()
+    self.setupConnections()
 
   def setup(self):
-    widget = self.layoutManager.sliceWidget(self.widgetName)
-    if not widget:
-      raise AttributeError("Slice widget with name %s not found" %self.widgetName)
-    sliceNode = widget.sliceLogic().GetSliceNode()
+    self.setupSliceWidget()
+    self.setLayout(qt.QGridLayout())
+    self.layout().addWidget(self.sliceWidget, 0, 0)
+    self.layout().addWidget(qt.QLabel(self.text), 1, 0)
+    self.buttonBox = qt.QDialogButtonBox()
+    self.buttonBox.standardButtons = self.standardButtons if getattr(self, "standardButtons") else \
+      qt.QDialogButtonBox.Ok | qt.QDialogButtonBox.Cancel
+    self.layout().addWidget(self.createHLayout(self.buttonBox.buttons()), 2, 0)
+    self.resize(int(slicer.util.mainWindow().width / 3 * 2), int(slicer.util.mainWindow().height / 4 * 3))
 
-    self.sliceWidget = slicer.qMRMLSliceWidget()
-    self.sliceWidget.setMRMLScene(widget.mrmlScene())
-    self.sliceWidget.setMRMLSliceNode(sliceNode)
+  def setupConnections(self):
+    self.buttonBox.accepted.connect(lambda: self.accept())
+    self.buttonBox.rejected.connect(lambda: self.reject())
+    self.buttonBox.clicked.connect(lambda b: setattr(self, "clickedButton", self.buttonBox.standardButton(b)))
 
-    self.layout().addWidget(self.sliceWidget, 0, 1)
-    self.layout().addWidget(qt.QLabel(self.text), 1 ,1)
-    self.layout().addWidget(self.createHLayout(self.buttons()), 2, 1)
+  def setupSliceWidget(self):
+    black = slicer.util.getNode('Black')
+    if black:
+      slicer.mrmlScene.RemoveNode(black)
+    self.sliceNode = slicer.vtkMRMLSliceNode()
+    self.sliceNode.SetName("Black")
+    self.sliceNode.SetLayoutName("Black")
+    self.sliceNode.SetLayoutLabel("BL")
+    self.sliceNode.SetOrientationToAxial()
+    slicer.mrmlScene.AddNode(self.sliceNode)
+    self.sliceWidget = self.layoutManager.viewWidget(self.sliceNode)
+    self.sliceLogic = slicer.app.applicationLogic().GetSliceLogic(self.sliceNode)
+    self.sliceNode.SetMappedInLayout(1)
 
   def exec_(self):
-    raise NotImplementedError
+    if not self.sliceNode.GetScene():
+      slicer.mrmlScene.AddNode(self.sliceNode)
+    self.sliceNode.SetMappedInLayout(1)
+    self.sliceLogic.GetSliceCompositeNode().SetBackgroundVolumeID(self.volumeNode.GetID())
+    if self.labelNode:
+      self.sliceLogic.GetSliceCompositeNode().SetLabelVolumeID(self.labelNode.GetID())
+    slicer.app.processEvents()
+    self.sliceLogic.FitSliceToAll()
+    self.sliceNode.RotateToVolumePlane(self.volumeNode)
+    qt.QDialog.exec_(self)
+    slicer.mrmlScene.RemoveNode(self.sliceNode)
+    return self.clickedButton
 
 
-class SliceWidgetConfirmYesNoMessageBox(SliceWidgetMessageBoxBase):
-  """ SliceWidgetConfirmYesNoMessageBox for displaying a slice widget with a specific question to confirm
+class SliceWidgetConfirmYesNoDialog(SliceWidgetDialogBase):
+  """ SliceWidgetConfirmYesNoDialog for displaying a slice widget with a specific question to confirm
 
     .. code-block:: python
 
-      from SlicerDevelopmentToolboxUtils.widgets import SliceWidgetConfirmYesNoMessageBox
+      from SlicerDevelopmentToolboxUtils.widgets import SliceWidgetConfirmYesNoDialog
 
-      w = SliceWidgetConfirmYesNoMessageBox("Red", "Some random text")
+      volume = ...
+      w = SliceWidgetConfirmYesNoDialog(volume, "Some random text")
       w.exec_()
   """
 
-  def __init__(self, widgetName, text="", parent=None, **kwargs):
-    super(SliceWidgetConfirmYesNoMessageBox, self).__init__(widgetName, text, parent,
-                                                            standardButtons=qt.QMessageBox.Yes | qt.QMessageBox.No |
-                                                                            qt.QMessageBox.Cancel, **kwargs)
-
-  def exec_(self):
-    widget = self.layoutManager.sliceWidget(self.widgetName)
-    self.sliceWidget.setFixedSize(widget.size)
-    return qt.QMessageBox.exec_(self)
+  def __init__(self, volume, text="", labelNode=None, parent=None, **kwargs):
+    super(SliceWidgetConfirmYesNoDialog, self).__init__(volume, text, labelNode, parent,
+                                                        standardButtons=qt.QDialogButtonBox.Yes |
+                                                                        qt.QDialogButtonBox.No |
+                                                                        qt.QDialogButtonBox.Cancel, **kwargs)
 
 
 class RadioButtonChoiceMessageBox(qt.QMessageBox, ModuleWidgetMixin):
