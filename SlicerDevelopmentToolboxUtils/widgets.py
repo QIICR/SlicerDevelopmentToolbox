@@ -1774,9 +1774,11 @@ class SliceWidgetDialogBase(qt.QDialog, ModuleWidgetMixin):
     self.buttonBox.clicked.connect(lambda b: setattr(self, "clickedButton", self.buttonBox.standardButton(b)))
 
   def setupSliceWidget(self):
-    black = slicer.util.getNode('Black')
-    if black:
+    try:
+      black = slicer.util.getNode('Black')
       slicer.mrmlScene.RemoveNode(black)
+    except slicer.util.MRMLNodeNotFoundException:
+      pass
     self.sliceNode = slicer.vtkMRMLSliceNode()
     self.sliceNode.SetName("Black")
     self.sliceNode.SetLayoutName("Black")
