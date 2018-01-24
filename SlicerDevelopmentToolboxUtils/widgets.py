@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import xml.dom
+from packaging import version
 
 import ctk
 import qt
@@ -265,9 +266,12 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
     self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
     self.table.setMaximumHeight(200)
-    self.table.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
-    self.table.horizontalHeader().setResizeMode(0, qt.QHeaderView.Stretch)
-    self.table.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
+    method = getattr(self.table.horizontalHeader(),
+                     "setResizeMode" if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else
+                     "setSectionResizeMode")
+    method(qt.QHeaderView.Stretch)
+    method(0, qt.QHeaderView.Stretch)
+    method(1, qt.QHeaderView.ResizeToContents)
     self._resetTable()
     self.layout().addWidget(self.table)
 
