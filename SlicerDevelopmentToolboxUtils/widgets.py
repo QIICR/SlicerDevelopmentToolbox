@@ -11,7 +11,7 @@ from constants import DICOMTAGS
 from decorators import singleton
 from events import SlicerDevelopmentToolboxEvents
 from helpers import SmartDICOMReceiver, DICOMDirectorySender
-from mixins import ModuleWidgetMixin, ModuleLogicMixin
+from mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
 from icons import Icons
 
 
@@ -1664,8 +1664,9 @@ class ImportLabelMapIntoSegmentationWidget(ImportIntoSegmentationWidgetBase):
   _LayoutClass = qt.QFormLayout
 
   def __init__(self, parent=None):
+    self.logic = ImportLabelMapIntoSegmentationLogic()
     super(ImportLabelMapIntoSegmentationWidget, self).__init__(parent)
-    self.volumesLogic = slicer.modules.volumes.logic()
+    self._connectLogicEvents()
 
   def setup(self):
     super(ImportLabelMapIntoSegmentationWidget, self).setup()
@@ -1685,48 +1686,85 @@ class ImportLabelMapIntoSegmentationWidget(ImportIntoSegmentationWidgetBase):
     self.segmentationNodeSelector.connect('currentNodeChanged(vtkMRMLNode*)',
                                           lambda node: self._updateButtonAvailability())
     self.labelMapSelector.connect('currentNodeChanged(vtkMRMLNode*)', lambda node: self._updateButtonAvailability())
-    self.importButton.clicked.connect(self._onImportButtonClicked)
+    self.importButton.clicked.connect(self.logic.run)
+
+  def _connectLogicEvents(self):
+    self.logic.addEventObserver(self.logic.StartedEvent, lambda c, e: self.invokeEvent(self.StartedEvent))
+    self.logic.addEventObserver(self.logic.FailedEvent, lambda c, e: self.invokeEvent(self.FailedEvent))
+    self.logic.addEventObserver(self.logic.SuccessEvent, lambda c, e: self.invokeEvent(self.SuccessEvent))
+    self.logic.addEventObserver(self.logic.ResampleWarningEvent, self.onResampleWarning)
 
   def _updateButtonAvailability(self):
-    self.importButton.setEnabled(self.labelMapSelector.currentNode() and self.segmentationNodeSelector.currentNode())
+    self.logic.segmentationNode = self.segmentationNodeSelector.currentNode()
+    self.logic.labelmap = self.labelMapSelector.currentNode()
+    self.importButton.setEnabled(self.logic.segmentationNode and self.logic.labelmap)
 
-  def _onImportButtonClicked(self):
+  @vtk.calldata_type(vtk.VTK_STRING)
+  def onResampleWarning(self, caller, event, callData):
+    if slicer.util.confirmYesNoDisplay("Geometry of master and label do not match. Do you want to resample the "
+                                       "label?", detailedText=callData):
+      self.logic.run(resampleIfNecessary=True)
+    else:
+      self.invokeEvent(self.CanceledEvent)
+
+class ImportLabelMapIntoSegmentationLogic(ParameterNodeObservationMixin):
+
+  StartedEvent = SlicerDevelopmentToolboxEvents.StartedEvent
+  SuccessEvent = SlicerDevelopmentToolboxEvents.SuccessEvent
+  FailedEvent = SlicerDevelopmentToolboxEvents.FailedEvent
+  ResampleWarningEvent = vtk.vtkCommand.UserEvent + 301
+
+  @property
+  def labelmap(self):
+    return self._labelmap
+
+  @labelmap.setter
+  def labelmap(self, node):
+    self._labelmap = node
+
+  @property
+  def segmentationNode(self):
+    return self._segmentationNode
+
+  @segmentationNode.setter
+  def segmentationNode(self, node):
+    self._segmentationNode = node
+
+  def __init__(self, segmentationNode=None, labelmap=None):
+    self._labelmap = labelmap
+    self._segmentationNode = segmentationNode
+    self.volumesLogic = slicer.modules.volumes.logic()
+
+  def run(self, resampleIfNecessary=False):
     self.invokeEvent(self.StartedEvent)
-    currentSegmentationNode = self.segmentationNodeSelector.currentNode()
-    labelmapNode = self.labelMapSelector.currentNode()
 
-    logging.debug("Starting import labelmap %s into segmentation %s" %(labelmapNode.GetName(),
-                                                                       currentSegmentationNode.GetName()))
+    logging.debug("Starting import labelmap %s into segmentation %s" % (self.labelmap.GetName(),
+                                                                        self.segmentationNode.GetName()))
 
-    masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(currentSegmentationNode)
+    masterVolume = ModuleLogicMixin.getReferencedVolumeFromSegmentationNode(self.segmentationNode)
+    labelmap = self.labelmap
 
     if not masterVolume:
-      raise ValueError("No referenced master volume found for %s" % currentSegmentationNode.GetName())
+      raise ValueError("No referenced master volume found for %s" % self.segmentationNode.GetName())
 
-    warnings = self.volumesLogic.CheckForLabelVolumeValidity(masterVolume, labelmapNode)
+    warnings = self.volumesLogic.CheckForLabelVolumeValidity(masterVolume, self.labelmap)
     if warnings != "":
-      if slicer.util.confirmYesNoDisplay("Geometry of master and label do not match. Do you want to resample the "
-                                         "label?", detailedText=warnings):
-        outputLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
-        outputLabel.SetName(labelmapNode.GetName() + "_resampled")
-        ModuleLogicMixin.runBRAINSResample(inputVolume=labelmapNode, referenceVolume=masterVolume,
-                                           outputVolume=outputLabel)
-        labelmapNode = outputLabel
-        self.labelMapSelector.setCurrentNode(outputLabel)
-      else:
-        self.invokeEvent(self.CanceledEvent)
+      if not resampleIfNecessary:
+        self.invokeEvent(self.ResampleWarningEvent, warnings)
         return
+      else:
+        labelmap = self._resampleLabel(masterVolume)
 
-    currentSegmentationNode.CreateDefaultDisplayNodes()
+    self.segmentationNode.CreateDefaultDisplayNodes()
 
     segmentationsLogic = slicer.modules.segmentations.logic()
 
     slicer.app.setOverrideCursor(qt.QCursor(qt.Qt.BusyCursor))
-    success = segmentationsLogic.ImportLabelmapToSegmentationNode(labelmapNode, currentSegmentationNode)
+    success = segmentationsLogic.ImportLabelmapToSegmentationNode(labelmap, self.segmentationNode)
     slicer.app.restoreOverrideCursor()
 
     if not success:
-      message = "Failed to copy labels from labelmap volume node %s!" % labelmapNode.GetName()
+      message = "Failed to copy labels from labelmap volume node %s!" % labelmap.GetName()
       logging.error(message)
 
       slicer.util.warningDisplay("Failed to import from labelmap volume")
@@ -1734,6 +1772,13 @@ class ImportLabelMapIntoSegmentationWidget(ImportIntoSegmentationWidgetBase):
       return
 
     self.invokeEvent(self.SuccessEvent)
+
+  def _resampleLabel(self, masterVolume):
+    outputLabel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")
+    outputLabel.SetName(self.labelmap.GetName() + "_resampled")
+    ModuleLogicMixin.runBRAINSResample(inputVolume=self.labelmap, referenceVolume=masterVolume,
+                                       outputVolume=outputLabel)
+    return outputLabel
 
 
 class SliceWidgetDialogBase(qt.QDialog, ModuleWidgetMixin):
