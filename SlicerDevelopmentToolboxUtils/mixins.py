@@ -3,6 +3,7 @@ import os, logging
 import slicer
 import SimpleITK as sitk
 import sitkUtils
+
 from SlicerDevelopmentToolboxUtils.decorators import multimethod
 
 
@@ -117,20 +118,137 @@ class GeneralModuleMixin(ParameterNodeObservationMixin):
     return timer
 
 
-class ModuleWidgetMixin(GeneralModuleMixin):
+class UICreationHelpers(object):
+
+  @staticmethod
+  def createSliderWidget(minimum, maximum):
+    slider = slicer.qMRMLSliderWidget()
+    slider.minimum = minimum
+    slider.maximum = maximum
+    return slider
+
+  @staticmethod
+  def createLabel(title, **kwargs):
+    label = qt.QLabel(title)
+    return UICreationHelpers.extendQtGuiElementProperties(label, **kwargs)
+
+  @staticmethod
+  def createLineEdit(title, **kwargs):
+    lineEdit = qt.QLineEdit(title)
+    return UICreationHelpers.extendQtGuiElementProperties(lineEdit, **kwargs)
+
+  @staticmethod
+  def createButton(title, buttonClass=qt.QPushButton, **kwargs):
+    button = buttonClass(title)
+    button.setCursor(qt.Qt.PointingHandCursor)
+    return UICreationHelpers.extendQtGuiElementProperties(button, **kwargs)
+
+  @staticmethod
+  def createRadioButton(text, **kwargs):
+    button = qt.QRadioButton(text)
+    button.setCursor(qt.Qt.PointingHandCursor)
+    return UICreationHelpers.extendQtGuiElementProperties(button, **kwargs)
+
+  @staticmethod
+  def createDirectoryButton(**kwargs):
+    button = ctk.ctkDirectoryButton()
+    for key, value in kwargs.iteritems():
+      if hasattr(button, key):
+        setattr(button, key, value)
+    return button
+
+  @staticmethod
+  def extendQtGuiElementProperties(element, **kwargs):
+    for key, value in kwargs.iteritems():
+      if hasattr(element, key):
+        setattr(element, key, value)
+      else:
+        if key == "fixedHeight":
+          element.minimumHeight = value
+          element.maximumHeight = value
+        elif key == 'hidden':
+          if value:
+            element.hide()
+          else:
+            element.show()
+        else:
+          logging.error("%s does not have attribute %s" % (element.className(), key))
+    return element
+
+  @staticmethod
+  def createComboBox(**kwargs):
+    combobox = slicer.qMRMLNodeComboBox()
+    combobox.addEnabled = False
+    combobox.removeEnabled = False
+    combobox.noneEnabled = True
+    combobox.showHidden = False
+    for key, value in kwargs.iteritems():
+      if hasattr(combobox, key):
+        setattr(combobox, key, value)
+      else:
+        logging.error("qMRMLNodeComboBox does not have attribute %s" % key)
+    combobox.setMRMLScene(slicer.mrmlScene)
+    return combobox
+
+  @staticmethod
+  def createProgressDialog(parent=None, value=0, maximum=100, labelText="", windowTitle="Processing...",
+                           windowFlags=None, **kwargs):
+    """Display a modal QProgressDialog. Go to QProgressDialog documentation
+    http://pyqt.sourceforge.net/Docs/PyQt4/qprogressdialog.html for more keyword arguments, that could be used.
+    E.g. progressbar = createProgressIndicator(autoClose=False) if you don't want the progress dialog to automatically
+    close.
+    Updating progress value with progressbar.value = 50
+    Updating label text with progressbar.labelText = "processing XYZ"
+    """
+    progressIndicator = qt.QProgressDialog(parent if parent else slicer.util.mainWindow(),
+                                           windowFlags if windowFlags else qt.Qt.WindowStaysOnTopHint)
+    progressIndicator.minimumDuration = 0
+    progressIndicator.maximum = maximum
+    progressIndicator.value = value
+    progressIndicator.windowTitle = windowTitle
+    progressIndicator.labelText = labelText
+    for key, value in kwargs.iteritems():
+      if hasattr(progressIndicator, key):
+        setattr(progressIndicator, key, value)
+    return progressIndicator
+
+  @staticmethod
+  def createHLayout(elements, **kwargs):
+    return UICreationHelpers.createLayout(qt.QHBoxLayout, elements, **kwargs)
+
+  @staticmethod
+  def createVLayout(elements, **kwargs):
+    return UICreationHelpers.createLayout(qt.QVBoxLayout, elements, **kwargs)
+
+  @staticmethod
+  def createLayout(layoutClass, elements, **kwargs):
+    widget = qt.QWidget()
+    rowLayout = layoutClass()
+    widget.setLayout(rowLayout)
+    for element in elements:
+      rowLayout.addWidget(element)
+    for key, value in kwargs.iteritems():
+      if hasattr(rowLayout, key):
+        setattr(rowLayout, key, value)
+    return widget
+
+  @staticmethod
+  def createListView(name, headerLabels):
+    view = qt.QListView()
+    view.setObjectName(name)
+    view.setSpacing(3)
+    model = qt.QStandardItemModel()
+    model.setHorizontalHeaderLabels(headerLabels)
+    view.setModel(model)
+    view.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
+    return view, model
+
+
+class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
 
   @property
   def layoutManager(self):
     return slicer.app.layoutManager()
-
-  @staticmethod
-  def truncatePath(path):
-    try:
-      split = path.split('/')
-      path = '.../' + split[-2] + '/' + split[-1]
-    except (IndexError, AttributeError):
-      pass
-    return path
 
   def createSliceWidgetClassMembers(self, name):
     widget = self.layoutManager.sliceWidget(name)
@@ -269,33 +387,6 @@ class ModuleWidgetMixin(GeneralModuleMixin):
         print "key %s not found" % key
     slicer.app.processEvents()
 
-  def createHLayout(self, elements, **kwargs):
-    return self._createLayout(qt.QHBoxLayout, elements, **kwargs)
-
-  def createVLayout(self, elements, **kwargs):
-    return self._createLayout(qt.QVBoxLayout, elements, **kwargs)
-
-  def _createLayout(self, layoutClass, elements, **kwargs):
-    widget = qt.QWidget()
-    rowLayout = layoutClass()
-    widget.setLayout(rowLayout)
-    for element in elements:
-      rowLayout.addWidget(element)
-    for key, value in kwargs.iteritems():
-      if hasattr(rowLayout, key):
-        setattr(rowLayout, key, value)
-    return widget
-
-  def _createListView(self, name, headerLabels):
-    view = qt.QListView()
-    view.setObjectName(name)
-    view.setSpacing(3)
-    model = qt.QStandardItemModel()
-    model.setHorizontalHeaderLabels(headerLabels)
-    view.setModel(model)
-    view.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
-    return view, model
-
   def setBackgroundToVolumeID(self, volume, clearLabels=True, showLabelOutline=False):
     for widget in self.getAllVisibleWidgets():
       compositeNode = widget.mrmlSliceCompositeNode()
@@ -340,68 +431,6 @@ class ModuleWidgetMixin(GeneralModuleMixin):
     pixmap.save(buffer, "PNG")
     return "data:image/png;base64," + byteArray.toBase64().data()
 
-  def createSliderWidget(self, minimum, maximum):
-    slider = slicer.qMRMLSliderWidget()
-    slider.minimum = minimum
-    slider.maximum = maximum
-    return slider
-
-  def createLabel(self, title, **kwargs):
-    label = qt.QLabel(title)
-    return self.extendQtGuiElementProperties(label, **kwargs)
-
-  def createLineEdit(self, title, **kwargs):
-    lineEdit = qt.QLineEdit(title)
-    return self.extendQtGuiElementProperties(lineEdit, **kwargs)
-
-  def createButton(self, title, buttonClass=qt.QPushButton, **kwargs):
-    button = buttonClass(title)
-    button.setCursor(qt.Qt.PointingHandCursor)
-    return self.extendQtGuiElementProperties(button, **kwargs)
-
-  def createRadioButton(self, text, **kwargs):
-    button = qt.QRadioButton(text)
-    button.setCursor(qt.Qt.PointingHandCursor)
-    return self.extendQtGuiElementProperties(button, **kwargs)
-
-  def createDirectoryButton(self, **kwargs):
-    button = ctk.ctkDirectoryButton()
-    for key, value in kwargs.iteritems():
-      if hasattr(button, key):
-        setattr(button, key, value)
-    return button
-
-  def extendQtGuiElementProperties(self, element, **kwargs):
-    for key, value in kwargs.iteritems():
-      if hasattr(element, key):
-        setattr(element, key, value)
-      else:
-        if key == "fixedHeight":
-          element.minimumHeight = value
-          element.maximumHeight = value
-        elif key == 'hidden':
-          if value:
-            element.hide()
-          else:
-            element.show()
-        else:
-          logging.error("%s does not have attribute %s" % (element.className(), key))
-    return element
-
-  def createComboBox(self, **kwargs):
-    combobox = slicer.qMRMLNodeComboBox()
-    combobox.addEnabled = False
-    combobox.removeEnabled = False
-    combobox.noneEnabled = True
-    combobox.showHidden = False
-    for key, value in kwargs.iteritems():
-      if hasattr(combobox, key):
-        setattr(combobox, key, value)
-      else:
-        logging.error("qMRMLNodeComboBox does not have attribute %s" % key)
-    combobox.setMRMLScene(slicer.mrmlScene)
-    return combobox
-
   def showMainAppToolbars(self, show=True):
     w = slicer.util.mainWindow()
     for c in w.children():
@@ -410,28 +439,6 @@ class ModuleWidgetMixin(GeneralModuleMixin):
           c.show()
         else:
           c.hide()
-
-  @staticmethod
-  def createProgressDialog(parent=None, value=0, maximum=100, labelText="", windowTitle="Processing...",
-                           windowFlags=None, **kwargs):
-    """Display a modal QProgressDialog. Go to QProgressDialog documentation
-    http://pyqt.sourceforge.net/Docs/PyQt4/qprogressdialog.html for more keyword arguments, that could be used.
-    E.g. progressbar = createProgressIndicator(autoClose=False) if you don't want the progress dialog to automatically
-    close.
-    Updating progress value with progressbar.value = 50
-    Updating label text with progressbar.labelText = "processing XYZ"
-    """
-    progressIndicator = qt.QProgressDialog(parent if parent else slicer.util.mainWindow(),
-                                           windowFlags if windowFlags else qt.Qt.WindowStaysOnTopHint)
-    progressIndicator.minimumDuration = 0
-    progressIndicator.maximum = maximum
-    progressIndicator.value = value
-    progressIndicator.windowTitle = windowTitle
-    progressIndicator.labelText = labelText
-    for key, value in kwargs.iteritems():
-      if hasattr(progressIndicator, key):
-        setattr(progressIndicator, key, value)
-    return progressIndicator
 
   def _getMinimumTextWidth(self, text):
     fm = qt.QFontMetrics(qt.QFont(text, 0))
@@ -460,6 +467,15 @@ class ModuleLogicMixin(GeneralModuleMixin):
   @property
   def cropVolumeLogic(self):
     return slicer.modules.cropvolume.logic()
+
+  @staticmethod
+  def truncatePath(path):
+    try:
+      split = path.split('/')
+      path = '.../' + split[-2] + '/' + split[-1]
+    except (IndexError, AttributeError):
+      pass
+    return path
 
   @staticmethod
   def cloneFiducials(original, cloneName, keepDisplayNode=False):
