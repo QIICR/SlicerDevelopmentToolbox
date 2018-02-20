@@ -4,7 +4,6 @@ import os
 import sys
 import urllib
 from urllib import FancyURLopener
-from packaging import version
 
 import vtk
 import qt
@@ -747,7 +746,7 @@ class SliceAnnotation(object):
     self.textActor.SetDisplayPosition(xPos, yPos)
 
   def _applyHorizontalAlign(self):
-    sliceViewWidth = self.sliceView.width if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else \
+    sliceViewWidth = self.sliceView.width if ModuleWidgetMixin.isQtVersionOlder() else \
       self.sliceView.width * self.sliceView.devicePixelRatio()
     centerX = int((sliceViewWidth - self._getFontWidth()) / 2)
     if self.xPos:
@@ -762,7 +761,7 @@ class SliceAnnotation(object):
     return int(xPos)
 
   def _applyVerticalAlign(self):
-    sliceViewHeight = self.sliceView.height if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else \
+    sliceViewHeight = self.sliceView.height if ModuleWidgetMixin.isQtVersionOlder() else \
       self.sliceView.height * self.sliceView.devicePixelRatio()
     centerY = int((sliceViewHeight - self._getFontHeight()) / 2)
     if self.yPos:
@@ -800,7 +799,7 @@ class SliceAnnotation(object):
     tempSize = self.textProperty.GetFontSize()
     self.textProperty.SetFontSize(size)
     self.textActor.SetTextProperty(self.textProperty)
-    if self._getFontWidth() > (self.sliceView.width if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else \
+    if self._getFontWidth() > (self.sliceView.width if ModuleWidgetMixin.isQtVersionOlder() else \
             self.sliceView.width * self.sliceView.devicePixelRatio()):
       self.textProperty.SetFontSize(tempSize)
       self.textActor.SetTextProperty(self.textProperty)

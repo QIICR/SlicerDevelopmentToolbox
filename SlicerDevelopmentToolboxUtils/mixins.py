@@ -3,6 +3,7 @@ import os, logging
 import slicer
 import SimpleITK as sitk
 import sitkUtils
+from packaging import version
 
 from SlicerDevelopmentToolboxUtils.decorators import multimethod
 
@@ -448,6 +449,10 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
   def hideAllSegmentations(self):
     for segmentation in slicer.util.getNodesByClass('vtkMRMLSegmentationNode'):
       segmentation.SetDisplayVisibility(False)
+
+  @staticmethod
+  def isQtVersionOlder(than="5.0.0"):
+    return version.parse(qt.Qt.qVersion()) < version.parse(than)
 
 
 class ModuleLogicMixin(GeneralModuleMixin):

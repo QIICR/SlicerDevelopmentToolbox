@@ -2,7 +2,6 @@ import datetime
 import logging
 import os
 import xml.dom
-from packaging import version
 
 import ctk
 import qt
@@ -267,8 +266,7 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
     self.table.setMaximumHeight(200)
     method = getattr(self.table.horizontalHeader(),
-                     "setResizeMode" if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else
-                     "setSectionResizeMode")
+                     "setResizeMode" if ModuleWidgetMixin.isQtVersionOlder() else "setSectionResizeMode")
     method(qt.QHeaderView.Stretch)
     method(0, qt.QHeaderView.Stretch)
     method(1, qt.QHeaderView.ResizeToContents)
