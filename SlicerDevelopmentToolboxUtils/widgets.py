@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import xml.dom
+from packaging import version
 
 import ctk
 import qt
@@ -265,9 +266,12 @@ class TargetCreationWidget(qt.QWidget, ModuleWidgetMixin):
     self.table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
     self.table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
     self.table.setMaximumHeight(200)
-    self.table.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
-    self.table.horizontalHeader().setResizeMode(0, qt.QHeaderView.Stretch)
-    self.table.horizontalHeader().setResizeMode(1, qt.QHeaderView.ResizeToContents)
+    method = getattr(self.table.horizontalHeader(),
+                     "setResizeMode" if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else
+                     "setSectionResizeMode")
+    method(qt.QHeaderView.Stretch)
+    method(0, qt.QHeaderView.Stretch)
+    method(1, qt.QHeaderView.ResizeToContents)
     self._resetTable()
     self.layout().addWidget(self.table)
 
@@ -1815,9 +1819,11 @@ class SliceWidgetDialogBase(qt.QDialog, ModuleWidgetMixin):
     self.buttonBox.clicked.connect(lambda b: setattr(self, "clickedButton", self.buttonBox.standardButton(b)))
 
   def setupSliceWidget(self):
-    black = slicer.util.getNode('Black')
-    if black:
+    try:
+      black = slicer.util.getNode('Black')
       slicer.mrmlScene.RemoveNode(black)
+    except slicer.util.MRMLNodeNotFoundException:
+      pass
     self.sliceNode = slicer.vtkMRMLSliceNode()
     self.sliceNode.SetName("Black")
     self.sliceNode.SetLayoutName("Black")

@@ -4,6 +4,7 @@ import os
 import sys
 import urllib
 from urllib import FancyURLopener
+from packaging import version
 
 import vtk
 import qt
@@ -746,7 +747,9 @@ class SliceAnnotation(object):
     self.textActor.SetDisplayPosition(xPos, yPos)
 
   def _applyHorizontalAlign(self):
-    centerX = int((self.sliceView.width - self._getFontWidth()) / 2)
+    sliceViewWidth = self.sliceView.width if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else \
+      self.sliceView.width * self.sliceView.devicePixelRatio()
+    centerX = int((sliceViewWidth - self._getFontWidth()) / 2)
     if self.xPos:
       xPos = self.xPos if 0 < self.xPos < centerX else centerX
     else:
@@ -755,16 +758,18 @@ class SliceAnnotation(object):
       elif self.horizontalAlign == self.ALIGN_CENTER:
         xPos = centerX
       elif self.horizontalAlign == self.ALIGN_RIGHT:
-        xPos = self.sliceView.width - self._getFontWidth()
+        xPos = sliceViewWidth - self._getFontWidth()
     return int(xPos)
 
   def _applyVerticalAlign(self):
-    centerY = int((self.sliceView.height - self._getFontHeight()) / 2)
+    sliceViewHeight = self.sliceView.height if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else \
+      self.sliceView.height * self.sliceView.devicePixelRatio()
+    centerY = int((sliceViewHeight - self._getFontHeight()) / 2)
     if self.yPos:
       yPos = self.yPos if 0 < self.yPos < centerY else centerY
     else:
       if self.verticalAlign == self.ALIGN_TOP:
-        yPos = self.sliceView.height - self._getFontHeight()
+        yPos = sliceViewHeight - self._getFontHeight()
       elif self.verticalAlign == self.ALIGN_CENTER:
         yPos = centerY
       elif self.verticalAlign == self.ALIGN_BOTTOM:
@@ -795,7 +800,8 @@ class SliceAnnotation(object):
     tempSize = self.textProperty.GetFontSize()
     self.textProperty.SetFontSize(size)
     self.textActor.SetTextProperty(self.textProperty)
-    if self._getFontWidth() > self.sliceView.width:
+    if self._getFontWidth() > (self.sliceView.width if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0") else \
+            self.sliceView.width * self.sliceView.devicePixelRatio()):
       self.textProperty.SetFontSize(tempSize)
       self.textActor.SetTextProperty(self.textProperty)
       return False
