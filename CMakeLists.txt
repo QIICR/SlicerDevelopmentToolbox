@@ -39,6 +39,10 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Utils/module/logic.py
   ${MODULE_NAME}Utils/module/plugin.py
   ${MODULE_NAME}Utils/module/step.py
+  ${MODULE_NAME}Utils/forms/__init__.py
+  ${MODULE_NAME}Utils/forms/FormGenerator.py
+  ${MODULE_NAME}Utils/forms/FormGeneratorFactory.py
+  ${MODULE_NAME}Utils/forms/JSONFormGenerator.py
   )
 
 file(GLOB_RECURSE MODULE_PYTHON_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
