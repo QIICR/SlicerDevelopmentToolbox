@@ -110,6 +110,11 @@ class GeneralModuleMixin(ParameterNodeObservationMixin):
     settings = qt.QSettings()
     settings.setValue(moduleName + '/' + setting, value)
 
+  def removeSetting(self, setting, moduleName=None):
+    moduleName = moduleName if moduleName else self.moduleName
+    settings = qt.QSettings()
+    settings.remove(moduleName+ '/' + setting)
+
   @staticmethod
   def createTimer(interval, slot, singleShot=False):
     timer = qt.QTimer()
