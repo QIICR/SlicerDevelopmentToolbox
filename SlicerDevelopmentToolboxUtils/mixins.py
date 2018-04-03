@@ -103,7 +103,7 @@ class GeneralModuleMixin(ParameterNodeObservationMixin):
     moduleName = moduleName if moduleName else self.moduleName
     settings = qt.QSettings()
     setting = settings.value(moduleName + '/' + setting)
-    return setting if setting else default
+    return setting if setting is not None else default
 
   def setSetting(self, setting, value, moduleName=None):
     moduleName = moduleName if moduleName else self.moduleName
