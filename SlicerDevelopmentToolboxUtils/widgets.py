@@ -682,13 +682,46 @@ class PointEdit(DimensionEditBase):
 class ExtendedQMessageBox(qt.QMessageBox):
   """ QMessageBox which is extended by an additional checkbox for remembering selection without notifying again."""
 
+  @property
+  def checkbox(self):
+    return self._checkbox if ModuleWidgetMixin.isQtVersionOlder() else self.checkBox()
+
+  @property
+  def text(self):
+    if ModuleWidgetMixin.isQtVersionOlder():
+      return self.textLabel.text
+    else:
+      return super(ExtendedQMessageBox, self).text
+
+  @text.setter
+  def text(self, text):
+    self.setText(text)
+
   def __init__(self, parent= None):
     super(ExtendedQMessageBox, self).__init__(parent)
     self.setup()
 
   def setup(self):
-    self.checkbox = qt.QCheckBox("Remember the selection and do not notify again")
-    self.layout().addWidget(self.checkbox, 1, 1)
+    self._checkbox = qt.QCheckBox("Remember the selection and do not notify again")
+    if ModuleWidgetMixin.isQtVersionOlder():
+      self.textLabel = qt.QLabel()
+      self.layout().addWidget(self.textLabel, 0, 1)
+      self.layout().addWidget(self.checkbox, 1, 1)
+    else:
+      self.setCheckBox(self._checkbox)
+    self.checkbox.stateChanged.connect(self.onCheckboxStateChanged)
+
+  def onCheckboxStateChanged(self, state):
+    if state == 1:
+      self.showMsgBoxAgain = False
+    else:
+      self.showMsgBoxAgain = True
+
+  def setText(self, text):
+    if ModuleWidgetMixin.isQtVersionOlder():
+      self.textLabel.setText(text)
+    else:
+      qt.QMessageBox.setText(self, text)
 
   def exec_(self, *args, **kwargs):
     return qt.QMessageBox.exec_(self, *args, **kwargs), self.checkbox.isChecked()
