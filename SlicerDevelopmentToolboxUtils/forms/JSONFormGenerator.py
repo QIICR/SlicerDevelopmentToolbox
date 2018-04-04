@@ -65,6 +65,16 @@ class AbstractField(ParameterNodeObservationMixin):
     # editable?
     raise NotImplementedError
 
+  def execAndGetReturnValue(self, code):
+    code = code.replace("callback:", "")
+    commands = filter((lambda x: len(x) > 0), code.split(';'))
+    for idx, command in enumerate(commands):
+      if idx == len(commands)-1:
+        break
+      exec command in locals()
+    exec "returnValue={}".format(commands[-1]) in locals()
+    return returnValue
+
 
 class AbstractFieldWidget(qt.QWidget, AbstractField):
 
@@ -186,7 +196,7 @@ class JSONStringField(AbstractFieldWidget):
       self._elem.setMaxLength(self._schema["maxLength"])
     if self._schema.get("default"):
       default = self._schema["default"]
-      self._elem.setText(default)
+      self._elem.setText(self.execAndGetReturnValue(default) if "callback:" in default else default)
     if self._schema.get("description"):
       self._elem.setToolTip(self._schema["description"])
 
@@ -213,7 +223,8 @@ class JSONNumberField(AbstractFieldWidget):
     self._connectField()
     self._elem.setValidator(self._validator)
     if self._schema.get("default"):
-      self._elem.setText(self._schema["default"])
+      default = self._schema["default"]
+      self._elem.setText(self.execAndGetReturnValue(default) if "callback:" in default else default)
     if self._schema.get("description"):
       self._elem.setToolTip(self._schema["description"])
     self.layout().addWidget(self._elem)
