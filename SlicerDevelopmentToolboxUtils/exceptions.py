@@ -1,17 +1,15 @@
 
 class DICOMValueError(ValueError):
-
-  def __init__(self, *args, **kwargs):
-    pass
+  pass
 
 
 class PreProcessedDataError(ValueError):
-
-  def __init__(self, *args, **kwargs):
-    pass
+  pass
 
 
 class UnknownSeriesError(ValueError):
+  pass
 
-  def __init__(self, *args, **kwargs):
-    pass
+
+class NoEligibleSeriesFoundError(ValueError):
+  pass
