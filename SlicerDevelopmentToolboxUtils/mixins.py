@@ -315,6 +315,13 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
          yield widget
 
   @staticmethod
+  def linkAllSliceWidgets(link):
+    for widget in ModuleWidgetMixin.getAllVisibleWidgets():
+      compositeNode = widget.mrmlSliceCompositeNode()
+      compositeNode.SetLinkedControl(link)
+      compositeNode.SetInteractionFlagsModifier(4+8+16)
+
+  @staticmethod
   def hideAllLabels():
     for widget in ModuleWidgetMixin.getAllVisibleWidgets():
       compositeNode = widget.mrmlSliceCompositeNode()
