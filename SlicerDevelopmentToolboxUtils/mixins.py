@@ -4,6 +4,7 @@ import slicer
 import SimpleITK as sitk
 import sitkUtils
 from packaging import version
+import dicom
 
 from SlicerDevelopmentToolboxUtils.decorators import multimethod
 
@@ -698,6 +699,20 @@ class ModuleLogicMixin(GeneralModuleMixin):
         return e.childNodes[0].nodeValue
       except IndexError:
         return ""
+
+  @staticmethod
+  @multimethod(dicom.dataset.FileDataset, [str, unicode])
+  def getDICOMValue(dataset, tag):
+    return ModuleLogicMixin.getDICOMValue(dataset, tag, "")
+
+  @staticmethod
+  @multimethod(dicom.dataset.FileDataset, [str, unicode], [str, unicode])
+  def getDICOMValue(dataset, tagName, default=""):
+    try:
+      value = getattr(dataset, tagName)
+    except AttributeError:
+      value = default
+    return value
 
   @staticmethod
   @multimethod([str, unicode], [str, unicode])
