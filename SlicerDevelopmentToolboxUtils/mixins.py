@@ -401,8 +401,11 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
         print "key %s not found" % key
     slicer.app.processEvents()
 
-  def setBackgroundToVolumeID(self, volume, clearLabels=True, showLabelOutline=False):
-    for widget in self.getAllVisibleWidgets():
+  @staticmethod
+  def setBackgroundToVolumeID(self, volume, clearLabels=True, showLabelOutline=False, sliceWidgets=None):
+    if not sliceWidgets:
+      sliceWidgets = self.getAllVisibleWidgets()
+    for widget in sliceWidgets:
       compositeNode = widget.mrmlSliceCompositeNode()
       if clearLabels:
         compositeNode.SetLabelVolumeID(None)
