@@ -4,8 +4,7 @@ from collections import OrderedDict
 
 from .FormGenerator import *
 
-from SlicerDevelopmentToolboxUtils.mixins import UICreationHelpers, ParameterNodeObservationMixin
-
+from SlicerDevelopmentToolboxUtils.mixins import UICreationHelpers, GeneralModuleMixin
 
 # TODO: definitions are not resolved right now
 
@@ -14,13 +13,13 @@ class JSONFormGenerator(FormGenerator):
 
   CustomFrameClass = GeneratedFrame
 
-  def generate(self):
+  def generate(self, defaultSettings=None):
     with open(self.filePath) as data_file:
       data = json.load(data_file, object_pairs_hook=OrderedDict)
-      return self._generate(data)
+      return self._generate(data, defaultSettings)
 
-  def _generate(self, schema):
-    return JSONObjectField("", schema)
+  def _generate(self, schema, defaultSettings=None):
+    return JSONObjectField("", schema, defaultSettings)
 
 
 class JSONFieldFactory(object):
@@ -44,11 +43,12 @@ class JSONFieldFactory(object):
     raise ValueError("Schema %s cannot be handled by %s" % (schema, JSONFieldFactory.__name__))
 
 
-class AbstractField(ParameterNodeObservationMixin):
+class AbstractField(GeneralModuleMixin):
 
   UpdateEvent = vtk.vtkCommand.UserEvent + 100
 
-  def __init__(self, title, schema):
+  def __init__(self, title, schema, defaultSettings=None):
+    self._defaultSettings = defaultSettings
     self._type = schema.get('type')
     self.title = title
     self._schema = schema
@@ -56,6 +56,15 @@ class AbstractField(ParameterNodeObservationMixin):
 
   def setup(self):
     return NotImplementedError
+
+  def getDefaultValue(self):
+    value = None
+    if self._defaultSettings:
+      value = self._defaultSettings.value(self.title)
+    if not value and self._schema.get("default"):
+      value = self._schema["default"]
+      value = self.execAndGetReturnValue(value) if type(value) in [str, unicode] and "callback:" in value else value
+    return value
 
   def getData(self):
     return NotImplementedError
@@ -78,11 +87,11 @@ class AbstractField(ParameterNodeObservationMixin):
 
 class AbstractFieldWidget(qt.QWidget, AbstractField):
 
-  def __init__(self, title, schema, parent=None):
+  def __init__(self, title, schema, defaultSettings=None, parent=None):
     self._elem = None
     self._data = dict()
     qt.QWidget.__init__(self, parent)
-    AbstractField.__init__(self, title, schema)
+    AbstractField.__init__(self, title, schema, defaultSettings)
 
   def getData(self):
     return self._data
@@ -105,10 +114,10 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
 
 class JSONObjectField(qt.QGroupBox, AbstractField):
 
-  def __init__(self, title, schema, parent=None):
+  def __init__(self, title, schema, defaultSettings=None, parent=None):
     self.elements = []
     qt.QGroupBox.__init__(self, parent)
-    AbstractField.__init__(self, title, schema)
+    AbstractField.__init__(self, title, schema, defaultSettings)
 
   def setup(self):
     self.setLayout(qt.QFormLayout())
@@ -124,7 +133,7 @@ class JSONObjectField(qt.QGroupBox, AbstractField):
       schema = self._schema['properties']
     for title, elem in schema.items():
       fieldObjectClass = JSONFieldFactory.getJSONFieldClass(elem)
-      self._addElement(fieldObjectClass(title, elem))
+      self._addElement(fieldObjectClass(title, elem, self._defaultSettings))
 
   def _addElement(self, elem):
     if isinstance(elem, JSONObjectField):
@@ -162,6 +171,7 @@ class JSONEnumField(AbstractFieldWidget):
     elem = qt.QComboBox()
     elem.connect("currentIndexChanged(QString)",
                  lambda text: self._updateData(self.title, text))
+    self.destroyed.connect(lambda: elem.disconnect("currentIndexChanged(QString)"))
     elem.addItems(self._schema["enum"])
     return elem
 
@@ -172,6 +182,7 @@ class JSONEnumField(AbstractFieldWidget):
     self.__buttonGroup.setExclusive(True)
     self.__buttonGroup.connect("buttonClicked(QAbstractButton*)",
                                lambda button: self._updateData(self.title, button.text))
+    self.destroyed.connect(lambda: self.__buttonGroup.disconnect("buttonClicked(QAbstractButton*)"))
     for e in self._schema["enum"]:
       b = UICreationHelpers.createRadioButton(e, name=e)
       elem.layout().addWidget(b)
@@ -194,11 +205,12 @@ class JSONStringField(AbstractFieldWidget):
   def _configureAdditionalElementAttributes(self):
     if self._schema.get("maxLength"):
       self._elem.setMaxLength(self._schema["maxLength"])
-    if self._schema.get("default"):
-      default = self._schema["default"]
-      self._elem.setText(self.execAndGetReturnValue(default) if "callback:" in default else default)
+    default = self.getDefaultValue()
+    if default:
+      self._elem.setText(default)
     if self._schema.get("description"):
       self._elem.setToolTip(self._schema["description"])
+    self.destroyed.connect(lambda: self._elem.textChanged.disconnect())
 
   def _setupTextArea(self):
     elem = qt.QTextEdit()
@@ -222,15 +234,16 @@ class JSONNumberField(AbstractFieldWidget):
     self._elem = qt.QLineEdit()
     self._connectField()
     self._elem.setValidator(self._validator)
-    if self._schema.get("default"):
-      default = self._schema["default"]
-      self._elem.setText(self.execAndGetReturnValue(default) if "callback:" in default else default)
+    default = self.getDefaultValue()
+    if default:
+      self._elem.setText(default)
     if self._schema.get("description"):
       self._elem.setToolTip(self._schema["description"])
     self.layout().addWidget(self._elem)
 
   def _connectField(self):
     self._elem.textChanged.connect(lambda n: self._updateData(self.title, n))
+    self.destroyed.connect(lambda: self._elem.textChanged.disconnect())
 
   def _configureValidator(self):
     self._validator = self.validatorClass()
@@ -247,6 +260,7 @@ class JSONIntegerField(JSONNumberField):
 
   def _connectField(self):
     self._elem.textChanged.connect(lambda n: self._updateData(self.title, n))
+    self.destroyed.connect(lambda: self._elem.textChanged.disconnect())
 
 
 class JSONTypeConverter(object):
