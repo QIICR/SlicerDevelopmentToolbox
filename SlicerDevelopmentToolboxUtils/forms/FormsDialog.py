@@ -20,6 +20,7 @@ class FormsDialog(qt.QDialog):
     if self._currentForm:
       self._uiLayout.addWidget(form.form, 1, 1)
     self.updateNavigationButtons()
+    self.onResize()
 
   def __init__(self, schemaFiles, defaultSettings=None, parent=None):
     qt.QDialog.__init__(self, parent)
@@ -40,6 +41,10 @@ class FormsDialog(qt.QDialog):
     self.updateNavigationButtons()
 
     self.layout().addWidget(self.ui)
+
+  def onResize(self, caller=None, event=None):
+    slicer.app.processEvents()
+    self.adjustSize()
 
   def _loadUI(self):
     import inspect
@@ -86,6 +91,7 @@ class FormsDialog(qt.QDialog):
     for form in self.logic.schemaFiles:
       gen = FormGeneratorFactory.getFormGenerator(form)
       newForm = DoublyLinkedForms(gen.generate(self._defaultSettings))
+      newForm.form.addEventObserver(newForm.form.ResizeEvent, self.onResize)
       self.formWidgets.append(newForm)
       if self._currentForm:
         newForm.prevForm = self._currentForm

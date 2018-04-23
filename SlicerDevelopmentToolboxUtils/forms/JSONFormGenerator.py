@@ -1,4 +1,5 @@
 import vtk
+import ctk
 import json
 from collections import OrderedDict
 
@@ -46,25 +47,16 @@ class JSONFieldFactory(object):
 class AbstractField(GeneralModuleMixin):
 
   UpdateEvent = vtk.vtkCommand.UserEvent + 100
+  ResizeEvent = vtk.vtkCommand.UserEvent + 101
 
-  def __init__(self, title, schema, defaultSettings=None):
+  def __init__(self, schema, defaultSettings=None):
     self._defaultSettings = defaultSettings
     self._type = schema.get('type')
-    self.title = title
     self._schema = schema
     self.setup()
 
   def setup(self):
     return NotImplementedError
-
-  def getDefaultValue(self):
-    value = None
-    if self._defaultSettings:
-      value = self._defaultSettings.value(self.title)
-    if not value and self._schema.get("default"):
-      value = self._schema["default"]
-      value = self.execAndGetReturnValue(value) if type(value) in [str, unicode] and "callback:" in value else value
-    return value
 
   def getData(self):
     return NotImplementedError
@@ -90,8 +82,18 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
   def __init__(self, title, schema, defaultSettings=None, parent=None):
     self._elem = None
     self._data = dict()
+    self.title = title
     qt.QWidget.__init__(self, parent)
-    AbstractField.__init__(self, title, schema, defaultSettings)
+    AbstractField.__init__(self, schema, defaultSettings)
+
+  def getDefaultValue(self):
+    value = None
+    if self._defaultSettings:
+      value = self._defaultSettings.value(self.title)
+    if not value and self._schema.get("default"):
+      value = self._schema["default"]
+      value = self.execAndGetReturnValue(value) if type(value) in [str, unicode] and "callback:" in value else value
+    return value
 
   def getData(self):
     return self._data
@@ -112,34 +114,67 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
     self.invokeEvent(self.UpdateEvent, str([key, value]))
 
 
-class JSONObjectField(qt.QGroupBox, AbstractField):
+class JSONObjectField(qt.QWidget, AbstractField):
+
+  @property
+  def title(self):
+    if self._subWidget:
+      return getattr(self._subWidget, "title" if isinstance(self._subWidget, qt.QGroupBox) else "text")
+    return self._title
+
+  @title.setter
+  def title(self, value):
+    if not self._subWidget:
+      self._title = value
+    else:
+      setattr(self._subWidget, "title" if isinstance(self._subWidget, qt.QGroupBox) else "text", value)
 
   def __init__(self, title, schema, defaultSettings=None, parent=None):
     self.elements = []
-    qt.QGroupBox.__init__(self, parent)
-    AbstractField.__init__(self, title, schema, defaultSettings)
+    self._subWidget = None
+    self.title = title
+    qt.QWidget.__init__(self, parent)
+    AbstractField.__init__(self, schema, defaultSettings)
 
   def setup(self):
-    self.setLayout(qt.QFormLayout())
+    self.setLayout(qt.QVBoxLayout())
     # keywords to handle: required, properties
     # description?
     # title?
     schema = self._schema
-    if self._schema.get("title"):
-      self.title = self._schema.get("title")
+    self._setupSubWidget()
     if self._schema.get("description"):
       self.setToolTip(self._schema["description"])
     if self._schema.get('properties'):
       schema = self._schema['properties']
-    for title, elem in schema.items():
-      fieldObjectClass = JSONFieldFactory.getJSONFieldClass(elem)
-      self._addElement(fieldObjectClass(title, elem, self._defaultSettings))
+    for title, obj in schema.items():
+      fieldObjectClass = JSONFieldFactory.getJSONFieldClass(obj)
+      self._addElement(fieldObjectClass(title, obj, self._defaultSettings))
+    self.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
+
+  def _setupSubWidget(self):
+    if self._schema.get("collapsible") is True:
+      self._subWidget = ctk.ctkCollapsibleButton()
+      if self._schema.get("collapsed"):
+        self._subWidget.collapsed = self._schema.get("collapsed")
+      self._subWidget.contentsCollapsed.connect(self.onCollapsed)
+    else:
+      self._subWidget = qt.QGroupBox(self._title)
+
+    self.title = self._schema.get("title") if self._schema.get("title") else self._title
+
+    self._subWidget.setLayout(qt.QFormLayout())
+    self.layout().addWidget(self._subWidget)
+
+  def onCollapsed(self, collapsed):
+    qt.QTimer.singleShot(50, lambda: self.invokeEvent(self.ResizeEvent))
 
   def _addElement(self, elem):
     if isinstance(elem, JSONObjectField):
-      self.layout().addWidget(elem)
+      self._subWidget.layout().addWidget(elem)
+      elem.addEventObserver(self.ResizeEvent, lambda caller, event: self.invokeEvent(self.ResizeEvent))
     else:
-      self.layout().addRow(elem.title, elem)
+      self._subWidget.layout().addRow(elem.title, elem)
     self.elements.append(elem)
 
   def getData(self):
