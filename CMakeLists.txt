@@ -43,7 +43,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Utils/forms/FormGenerator.py
   ${MODULE_NAME}Utils/forms/FormGeneratorFactory.py
   ${MODULE_NAME}Utils/forms/JSONFormGenerator.py
-  ${MODULE_NAME}Utils/forms/FormsWidget.py
+  ${MODULE_NAME}Utils/forms/FormDialog.py
   )
 
 file(GLOB_RECURSE MODULE_PYTHON_RESOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
