@@ -402,9 +402,9 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
     slicer.app.processEvents()
 
   @staticmethod
-  def setBackgroundToVolumeID(self, volume, clearLabels=True, showLabelOutline=False, sliceWidgets=None):
+  def setBackgroundToVolumeID(volume, clearLabels=True, showLabelOutline=False, sliceWidgets=None):
     if not sliceWidgets:
-      sliceWidgets = self.getAllVisibleWidgets()
+      sliceWidgets = ModuleWidgetMixin.getAllVisibleWidgets()
     for widget in sliceWidgets:
       compositeNode = widget.mrmlSliceCompositeNode()
       if clearLabels:
@@ -739,12 +739,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
     return default
 
   @staticmethod
-  @multimethod(slicer.vtkMRMLScalarVolumeNode, [str, unicode])
+  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode])
   def getDICOMValue(volumeNode, tag):
     return ModuleLogicMixin.getDICOMValue(volumeNode, tag, "")
 
   @staticmethod
-  @multimethod(slicer.vtkMRMLScalarVolumeNode, [str, unicode], [str, unicode])
+  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode], [str, unicode])
   def getDICOMValue(volumeNode, tag, default):
     try:
       if volumeNode.GetStorageNode():
