@@ -188,19 +188,23 @@ class MultiMethod:
     self.typemap = {}
 
   def __call__(self, *args, **kwargs):
-    types = tuple(arg.__class__ for arg in args) # a generator expression!
-    function = self.typemap.get(types)
-    if function is None:
+    types = tuple(arg.__class__.__name__ for arg in args) # a generator expression!
+    func = self.typemap.get(types)
+    if func is None:
       raise TypeError("no match for types %s" % str(types))
-    return function(*args)
-  def register(self, types, function):
+    return func(*args)
+
+  def register(self, types, func):
     if types in self.typemap:
-      raise TypeError("duplicate registration")
-    self.typemap[types] = function
+      raise TypeError("duplicate registration: %s" % str(types))
+    self.typemap[types] = func
 
 
 def multimethod(*types):
   """ This decorator can be used to define different signatures of a method/function for different data types
+
+  NOTE: if you want to use classes that are not available when starting up slicer, define them as strings as follows:
+        @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode])
 
   .. doctest::
 
@@ -220,13 +224,20 @@ def multimethod(*types):
   See Also: http://www.artima.com/weblogs/viewpost.jsp?thread=101605
   """
 
+  def getStringifiedClasses(t):
+    if type(t) is list:
+      return map(getStringifiedClasses, t)
+    else:
+      return t.__name__ if not type(t) is str else t
+
   def register(func):
     name = func.__name__
     mm = MultiMethodRegistrations.registry.get(name)
     if mm is None:
       mm = MultiMethodRegistrations.registry[name] = MultiMethod(name)
-    for combination in list(itertools.product(*[[t] if type(t) is not list else t for t in types], repeat=1)):
-      mm.register(combination, func)
+    for combination in list(itertools.product(*[[t] if type(t) is not list else t for t in map(getStringifiedClasses, types)], repeat=1)):
+      if combination:
+        mm.register(combination, func)
     return mm
   return register
 
