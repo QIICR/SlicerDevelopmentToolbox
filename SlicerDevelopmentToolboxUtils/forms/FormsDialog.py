@@ -99,10 +99,10 @@ class FormsDialog(qt.QDialog):
       self._currentForm = newForm
     self._navigationBar.visible = len(self.logic.schemaFiles) > 1
 
-  def getData(self):
+  def getData(self, hideTopLevelTitle=True):
     data = dict()
     for form in self.formWidgets:
-      data.update(form.form.getData())
+      data.update(form.form.getData(hideTopLevelTitle))
     return data
 
 

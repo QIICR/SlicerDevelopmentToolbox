@@ -177,11 +177,23 @@ class JSONObjectField(qt.QWidget, AbstractField):
       self._subWidget.layout().addRow(elem.title, elem)
     self.elements.append(elem)
 
-  def getData(self):
+  def getData(self, hideTopLevelTitle=False):
+    """ Returns non empty data entered by the user. Parameter `hideTopLevelTitle` hides title of the top level object
+
+    An example is displayed below showing that the top level object has a title which might not be of interest when
+    retrieving entered data
+
+    Example:
+      { "type": "object",
+        "title": "Patient Clinical Information",
+        "properties": {
+          ...
+      }
+    """
     data = dict()
     for elem in self.elements:
       data.update(elem.getData())
-    return data if not self.title else {self.title: data}
+    return data if not self.title or hideTopLevelTitle else {self.title: data}
 
 
 class JSONArrayField(qt.QGroupBox, AbstractField):
