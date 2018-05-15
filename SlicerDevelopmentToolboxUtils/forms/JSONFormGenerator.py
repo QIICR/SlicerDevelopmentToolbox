@@ -48,11 +48,14 @@ class AbstractField(GeneralModuleMixin):
 
   UpdateEvent = vtk.vtkCommand.UserEvent + 100
   ResizeEvent = vtk.vtkCommand.UserEvent + 101
+  InvalidEvent = vtk.vtkCommand.UserEvent + 102
+  ValidEvent = vtk.vtkCommand.UserEvent + 103
 
-  def __init__(self, schema, defaultSettings=None):
+  def __init__(self, schema, required=False, defaultSettings=None):
     self._defaultSettings = defaultSettings
     self._type = schema.get('type')
     self._schema = schema
+    self.required = required
     self.setup()
 
   def setup(self):
@@ -76,15 +79,18 @@ class AbstractField(GeneralModuleMixin):
     exec "returnValue={}".format(commands[-1]) in locals()
     return returnValue
 
+  def isValid(self):
+    raise NotImplementedError
+
 
 class AbstractFieldWidget(qt.QWidget, AbstractField):
 
-  def __init__(self, title, schema, defaultSettings=None, parent=None):
+  def __init__(self, title, schema, required=False, defaultSettings=None, parent=None):
     self._elem = None
     self._data = dict()
     self.title = title
     qt.QWidget.__init__(self, parent)
-    AbstractField.__init__(self, schema, defaultSettings)
+    AbstractField.__init__(self, schema, required, defaultSettings)
 
   def getDefaultValue(self):
     value = None
@@ -111,7 +117,12 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
       self._data.pop(key, None)
     else:
       self._data[key] = value
-    self.invokeEvent(self.UpdateEvent, str([key, value]))
+
+    if self.required and not value:
+      self.invokeEvent(self.InvalidEvent)
+    else:
+      self.invokeEvent(self.UpdateEvent, str([key, value]))
+      self.invokeEvent(self.ValidEvent)
 
 
 class JSONObjectField(qt.QWidget, AbstractField):
@@ -129,27 +140,28 @@ class JSONObjectField(qt.QWidget, AbstractField):
     else:
       setattr(self._subWidget, "title" if isinstance(self._subWidget, qt.QGroupBox) else "text", value)
 
-  def __init__(self, title, schema, defaultSettings=None, parent=None):
+  def __init__(self, title, schema, required=False, defaultSettings=None, parent=None):
     self.elements = []
     self._subWidget = None
     self.title = title
     qt.QWidget.__init__(self, parent)
-    AbstractField.__init__(self, schema, defaultSettings)
+    AbstractField.__init__(self, schema, required, defaultSettings)
 
   def setup(self):
     self.setLayout(qt.QVBoxLayout())
-    # keywords to handle: required, properties
-    # description?
-    # title?
     schema = self._schema
     self._setupSubWidget()
+    requiredElements = []
     if self._schema.get("description"):
       self.setToolTip(self._schema["description"])
     if self._schema.get('properties'):
       schema = self._schema['properties']
+    if self._schema.get('required'):
+      requiredElements = self._schema['required']
     for title, obj in schema.items():
       fieldObjectClass = JSONFieldFactory.getJSONFieldClass(obj)
-      self._addElement(fieldObjectClass(title, obj, self._defaultSettings))
+      self._addElement(fieldObjectClass(title, obj,
+                                        required=title in requiredElements, defaultSettings=self._defaultSettings))
     self.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding)
 
   def _setupSubWidget(self):
@@ -175,7 +187,13 @@ class JSONObjectField(qt.QWidget, AbstractField):
       elem.addEventObserver(self.ResizeEvent, lambda caller, event: self.invokeEvent(self.ResizeEvent))
     else:
       self._subWidget.layout().addRow(elem.title, elem)
+    if elem.required:
+      elem.addEventObserver(self.InvalidEvent, lambda caller, event: self.invokeEvent(self.InvalidEvent))
+      elem.addEventObserver(self.ValidEvent, self._onValid)
     self.elements.append(elem)
+
+  def _onValid(self, caller, event):
+    self.invokeEvent(self.ValidEvent if self.isValid() else self.InvalidEvent)
 
   def getData(self, hideTopLevelTitle=False):
     """ Returns non empty data entered by the user. Parameter `hideTopLevelTitle` hides title of the top level object
@@ -194,6 +212,9 @@ class JSONObjectField(qt.QWidget, AbstractField):
     for elem in self.elements:
       data.update(elem.getData())
     return data if not self.title or hideTopLevelTitle else {self.title: data}
+
+  def isValid(self):
+    return all(elem.isValid() is True for elem in self.elements)
 
 
 class JSONArrayField(qt.QGroupBox, AbstractField):
@@ -236,6 +257,14 @@ class JSONEnumField(AbstractFieldWidget):
       self.__buttonGroup.addButton(b)
     return elem
 
+  def isValid(self):
+    if not self.required:
+      return True
+    if isinstance(self._elem, qt.QComboBox):
+      return bool(self._elem.currentText.strip())
+    else:
+      return self.__buttonGroup.checkedButton() is not None
+
 
 class JSONStringField(AbstractFieldWidget):
 
@@ -270,6 +299,14 @@ class JSONStringField(AbstractFieldWidget):
     elem.textChanged.connect(lambda text: self._updateData(self.title, text))
     return elem
 
+  def isValid(self):
+    if not self.required:
+      return True
+    if isinstance(self._elem, qt.QTextEdit):
+      return bool(self._elem.toPlainText().strip())
+    else:
+      return bool(self._elem.text.strip())
+
 
 class JSONNumberField(AbstractFieldWidget):
 
@@ -299,6 +336,11 @@ class JSONNumberField(AbstractFieldWidget):
     if self._schema.get("maximum"):
       self._validator.setTop(self._schema.get("maximum"))
     return self._validator
+
+  def isValid(self):
+    if not self.required:
+      return True
+    return bool(str(self._elem.value).strip())
 
 
 class JSONIntegerField(JSONNumberField):

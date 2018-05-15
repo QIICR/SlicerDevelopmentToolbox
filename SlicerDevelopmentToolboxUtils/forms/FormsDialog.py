@@ -92,6 +92,8 @@ class FormsDialog(qt.QDialog):
       gen = FormGeneratorFactory.getFormGenerator(form)
       newForm = DoublyLinkedForms(gen.generate(self._defaultSettings))
       newForm.form.addEventObserver(newForm.form.ResizeEvent, self.onResize)
+      newForm.form.addEventObserver(newForm.form.ValidEvent, lambda caller, event: self._validateForms())
+      newForm.form.addEventObserver(newForm.form.InvalidEvent, self._onInvalidFormFound)
       self.formWidgets.append(newForm)
       if self._currentForm:
         newForm.prevForm = self._currentForm
@@ -104,6 +106,16 @@ class FormsDialog(qt.QDialog):
     for form in self.formWidgets:
       data.update(form.form.getData(hideTopLevelTitle))
     return data
+
+  def _onInvalidFormFound(self, caller, event):
+    self._buttonBox.button(qt.QDialogButtonBox.Ok).enabled = False
+
+  def _validateForms(self):
+    self._buttonBox.button(qt.QDialogButtonBox.Ok).enabled = all(f.form.isValid() is True for f in self.formWidgets)
+
+  def exec_(self):
+    self._validateForms()
+    return qt.QDialog.exec_(self)
 
 
 class FormsDialogLogic(object):
