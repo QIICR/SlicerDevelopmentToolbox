@@ -1965,3 +1965,44 @@ class RadioButtonChoiceMessageBox(qt.QMessageBox, ModuleWidgetMixin):
   def _onOptionSelected(self, value):
     self.selectedOption = value
     self.button(qt.QMessageBox.Ok).enabled = True
+
+
+class TextInformationRequestDialog(qt.QDialog):
+
+  def __init__(self, attributeName, parent=None):
+    qt.QDialog.__init__(self, parent)
+    self._attributeName = attributeName
+    self.setup()
+    self._setupConnections()
+
+  def setup(self):
+    self.setLayout(qt.QGridLayout())
+    self._loadUI()
+    self.layout().addWidget(self.ui)
+
+  def _loadUI(self):
+    import inspect
+    modulePath = os.path.dirname(os.path.normpath(os.path.dirname(inspect.getfile(self.__class__))))
+    modulePath = modulePath.replace("SlicerDevelopmentToolboxUtils", "")
+    path = os.path.join(modulePath, 'Resources', 'UI', 'TextInformationRequestDialog.ui')
+    self.ui = slicer.util.loadUI(path)
+    self._lineEdit = self.ui.findChild(qt.QLineEdit, "lineEdit")
+    self._label = self.ui.findChild(qt.QLabel, "label")
+    self._label.setText(self._attributeName)
+    self._buttonBox = self.ui.findChild(qt.QDialogButtonBox, "buttonBox")
+
+  def _setupConnections(self):
+    def setupConnections(funcName="connect"):
+      getattr(self._buttonBox.accepted, funcName)(self.accept)
+      getattr(self._buttonBox.rejected, funcName)(self.reject)
+      getattr(self._lineEdit.textChanged, funcName)(self._onTextChanged)
+
+    setupConnections()
+    slicer.app.connect('aboutToQuit()', self.deleteLater)
+    self.destroyed.connect(lambda : setupConnections(funcName="disconnect"))
+
+  def _onTextChanged(self, text):
+    self._buttonBox.button(qt.QDialogButtonBox.Ok).enabled = bool(text.strip())
+
+  def getValue(self):
+    return self._lineEdit.text
