@@ -20,8 +20,7 @@ class JSONFormGenerator(FormGenerator):
       return self._generate(data, defaultSettings)
 
   def _generate(self, schema, defaultSettings=None):
-    return JSONObjectField("", schema, defaultSettings)
-
+    return JSONObjectField("", schema, defaultSettings=defaultSettings, addRestoreDefaultsButton=True)
 
 class JSONFieldFactory(object):
 
@@ -82,6 +81,9 @@ class AbstractField(GeneralModuleMixin):
   def isValid(self):
     raise NotImplementedError
 
+  def restoreJSONDefaults(self):
+    raise NotImplementedError
+
 
 class AbstractFieldWidget(qt.QWidget, AbstractField):
 
@@ -100,6 +102,9 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
       value = self._schema["default"]
       value = self.execAndGetReturnValue(value) if type(value) in [str, unicode] and "callback:" in value else value
     return value
+
+  def getDefaultJSONValue(self):
+    return self._schema.get("default")
 
   def getData(self):
     return self._data
@@ -124,6 +129,10 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
       self.invokeEvent(self.UpdateEvent, str([key, value]))
       self.invokeEvent(self.ValidEvent)
 
+  def restoreJSONDefaults(self):
+    value = self._elem.property("default")
+    self._elem.setText(self.execAndGetReturnValue(value) if type(value) in [str, unicode] and "callback:" in value else value)
+
 
 class JSONObjectField(qt.QWidget, AbstractField):
 
@@ -140,10 +149,11 @@ class JSONObjectField(qt.QWidget, AbstractField):
     else:
       setattr(self._subWidget, "title" if isinstance(self._subWidget, qt.QGroupBox) else "text", value)
 
-  def __init__(self, title, schema, required=False, defaultSettings=None, parent=None):
+  def __init__(self, title, schema, required=False, defaultSettings=None, addRestoreDefaultsButton=False, parent=None):
     self.elements = []
     self._subWidget = None
     self.title = title
+    self._addRestoreDefaultsButton = addRestoreDefaultsButton
     qt.QWidget.__init__(self, parent)
     AbstractField.__init__(self, schema, required, defaultSettings)
 
@@ -177,6 +187,10 @@ class JSONObjectField(qt.QWidget, AbstractField):
 
     self._subWidget.setLayout(qt.QFormLayout())
     self.layout().addWidget(self._subWidget)
+    if self._addRestoreDefaultsButton:
+      self._restoreDefaultsButton = UICreationHelpers.createButton("Restore defaults")
+      self.layout().addWidget(self._restoreDefaultsButton)
+      self._restoreDefaultsButton.clicked.connect(self.restoreJSONDefaults)
 
   def onCollapsed(self, collapsed):
     qt.QTimer.singleShot(50, lambda: self.invokeEvent(self.ResizeEvent))
@@ -215,6 +229,10 @@ class JSONObjectField(qt.QWidget, AbstractField):
 
   def isValid(self):
     return all(elem.isValid() is True for elem in self.elements)
+
+  def restoreJSONDefaults(self):
+    for elem in self.elements:
+      elem.restoreJSONDefaults()
 
 
 class JSONArrayField(qt.QGroupBox, AbstractField):
@@ -284,6 +302,7 @@ class JSONStringField(AbstractFieldWidget):
     default = self.getDefaultValue()
     if default:
       self._elem.setText(default)
+    self._elem.setProperty('default', self.getDefaultJSONValue())
     if self._schema.get("description"):
       self._elem.setToolTip(self._schema["description"])
     self.destroyed.connect(lambda: self._elem.textChanged.disconnect())
@@ -321,6 +340,7 @@ class JSONNumberField(AbstractFieldWidget):
     default = self.getDefaultValue()
     if default:
       self._elem.setText(default)
+    self._elem.setProperty('default', self.getDefaultJSONValue())
     if self._schema.get("description"):
       self._elem.setToolTip(self._schema["description"])
     self.layout().addWidget(self._elem)
