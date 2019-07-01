@@ -308,7 +308,7 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
   def getAllVisibleWidgets():
     lm = slicer.app.layoutManager()
     sliceLogics = lm.mrmlSliceLogics()
-    for n in xrange(sliceLogics.GetNumberOfItems()):
+    for n in range(sliceLogics.GetNumberOfItems()):
       sliceLogic = sliceLogics.GetItemAsObject(n)
       widget = lm.sliceWidget(sliceLogic.GetName())
       if widget.sliceView().visible:
