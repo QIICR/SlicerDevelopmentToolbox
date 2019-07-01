@@ -59,7 +59,7 @@ class IconsMetaClass(type):
     return getattr(cls, attr)
 
 
-class Icons(object):
+class Icons(object, metaclass=IconsMetaClass):
   """ The Icons class provides a bunch of frequently used icons.
 
   All icons from ``names`` can directly be accessed by using ``Icons.{name from names list}`` (i.e. ``Icons.apply``)
@@ -75,8 +75,6 @@ class Icons(object):
     applyIcon = Icons.apply
     sideBySideIcon = Icons.layout_side_by_side_view
   """
-
-  __metaclass__ = IconsMetaClass
 
   @classproperty
   def names(cls):
