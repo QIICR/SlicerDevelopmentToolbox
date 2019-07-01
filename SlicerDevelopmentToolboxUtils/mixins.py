@@ -398,7 +398,7 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
       if hasattr(progress, key):
         setattr(progress, key, value)
       else:
-        print "key %s not found" % key
+        print("key %s not found" % key)
     slicer.app.processEvents()
 
   @staticmethod
@@ -711,12 +711,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
         return ""
 
   @staticmethod
-  @multimethod(dicom.dataset.FileDataset, [str, unicode])
+  @multimethod(dicom.dataset.FileDataset, [str])
   def getDICOMValue(dataset, tag):
     return ModuleLogicMixin.getDICOMValue(dataset, tag, "")
 
   @staticmethod
-  @multimethod(dicom.dataset.FileDataset, [str, unicode], [str, unicode])
+  @multimethod(dicom.dataset.FileDataset, [str], [str])
   def getDICOMValue(dataset, tagName, default=""):
     try:
       value = getattr(dataset, tagName)
@@ -725,12 +725,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
     return value
 
   @staticmethod
-  @multimethod([str, unicode], [str, unicode])
+  @multimethod([str], [str])
   def getDICOMValue(currentFile, tag):
     return ModuleLogicMixin.getDICOMValue(currentFile, tag, "")
 
   @staticmethod
-  @multimethod([str, unicode], [str, unicode], [str, unicode])
+  @multimethod([str], [str], [str])
   def getDICOMValue(currentFile, tag, default):
     try:
       return slicer.dicomDatabase.fileValue(currentFile, tag)
@@ -739,12 +739,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
     return default
 
   @staticmethod
-  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode])
+  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str])
   def getDICOMValue(volumeNode, tag):
     return ModuleLogicMixin.getDICOMValue(volumeNode, tag, "")
 
   @staticmethod
-  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode], [str, unicode])
+  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str], [str])
   def getDICOMValue(volumeNode, tag, default):
     try:
       if volumeNode.GetStorageNode():

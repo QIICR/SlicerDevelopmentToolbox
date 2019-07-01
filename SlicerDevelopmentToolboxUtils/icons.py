@@ -2,7 +2,7 @@ import os
 import inspect
 import qt
 import re
-from decorators import classproperty
+from SlicerDevelopmentToolboxUtils.decorators import classproperty
 
 
 class IconsMetaClass(type):

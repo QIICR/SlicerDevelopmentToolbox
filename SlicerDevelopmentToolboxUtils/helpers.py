@@ -3,15 +3,15 @@ import logging
 import os
 import sys
 import urllib
-from urllib import FancyURLopener
+from urllib.request import FancyURLopener
 
 import vtk
 import qt
 import slicer
 from DICOMLib import DICOMProcess, DICOMStoreSCPProcess
 
-from events import SlicerDevelopmentToolboxEvents
-from mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
+from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
+from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
 
 
 class SampleDataDownloader(FancyURLopener, ParameterNodeObservationMixin):
@@ -954,7 +954,7 @@ class WatchBoxAttribute(object):
   def value(self, value):
     if not value:
       value = ""
-    if type(value) not in [str, unicode]:
+    if type(value) not in [str]:
       value = str(value)
     self.originalValue = value
     self.updateVisibleValues(self.originalValue if not self.masked else self.maskedValue(self.originalValue))
