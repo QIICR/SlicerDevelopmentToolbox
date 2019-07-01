@@ -81,7 +81,7 @@ class ParameterNodeObservationMixin(object):
 class GeneralModuleMixin(ParameterNodeObservationMixin):
 
   def _processKwargs(self, **kwargs):
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(self, key):
         setattr(self, key, value)
 
@@ -159,14 +159,14 @@ class UICreationHelpers(object):
   @staticmethod
   def createDirectoryButton(**kwargs):
     button = ctk.ctkDirectoryButton()
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(button, key):
         setattr(button, key, value)
     return button
 
   @staticmethod
   def extendQtGuiElementProperties(element, **kwargs):
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(element, key):
         setattr(element, key, value)
       else:
@@ -189,7 +189,7 @@ class UICreationHelpers(object):
     combobox.removeEnabled = False
     combobox.noneEnabled = True
     combobox.showHidden = False
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(combobox, key):
         setattr(combobox, key, value)
       else:
@@ -214,7 +214,7 @@ class UICreationHelpers(object):
     progressIndicator.value = value
     progressIndicator.windowTitle = windowTitle
     progressIndicator.labelText = labelText
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(progressIndicator, key):
         setattr(progressIndicator, key, value)
     return progressIndicator
@@ -234,7 +234,7 @@ class UICreationHelpers(object):
     widget.setLayout(rowLayout)
     for element in elements:
       rowLayout.addWidget(element)
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(rowLayout, key):
         setattr(rowLayout, key, value)
     return widget
@@ -394,7 +394,7 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
   def updateProgressBar(self, **kwargs):
     progress = kwargs.pop('progress', None)
     assert progress, "Keyword argument progress (instance of QProgressDialog) is missing"
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(progress, key):
         setattr(progress, key, value)
       else:
