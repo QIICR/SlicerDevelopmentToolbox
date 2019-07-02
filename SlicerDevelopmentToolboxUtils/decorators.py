@@ -66,7 +66,7 @@ class onModuleSelected(object):
 
     @onModuleSelected(moduleName="SliceTracker")
     def onLayoutChanged(self, layout=None):
-      print "layout changed"
+      print("layout changed")
   """
 
   def __init__(self, moduleName):
@@ -204,17 +204,17 @@ def multimethod(*types):
   """ This decorator can be used to define different signatures of a method/function for different data types
 
   NOTE: if you want to use classes that are not available when starting up slicer, define them as strings as follows:
-        @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode])
+        @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str])
 
   .. doctest::
 
       @multimethod([int, float], [int, float], str)
       def foo(arg1, arg2, arg3):
-        print arg1, arg2, arg3
+        print(arg1, arg2, arg3)
 
       @multimethod([int, float], str)
       def foo(arg1, arg2, arg3):
-        print arg1, arg2, arg3
+        print(arg1, arg2, arg3)
 
       foo(1,2,"bar")
       foo(1.0,2,"bar")
@@ -250,7 +250,7 @@ def timer(func):
     startTime = time.time()
     x = func(*args, **kwargs)
     duration = time.time() - startTime
-    print "{} ran in: {0} seconds".format(func.__name__, duration)
+    print("{} ran in: {0} seconds".format(func.__name__, duration))
     return x
 
   return _new_function

@@ -81,7 +81,7 @@ class ParameterNodeObservationMixin(object):
 class GeneralModuleMixin(ParameterNodeObservationMixin):
 
   def _processKwargs(self, **kwargs):
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(self, key):
         setattr(self, key, value)
 
@@ -159,14 +159,14 @@ class UICreationHelpers(object):
   @staticmethod
   def createDirectoryButton(**kwargs):
     button = ctk.ctkDirectoryButton()
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(button, key):
         setattr(button, key, value)
     return button
 
   @staticmethod
   def extendQtGuiElementProperties(element, **kwargs):
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(element, key):
         setattr(element, key, value)
       else:
@@ -189,7 +189,7 @@ class UICreationHelpers(object):
     combobox.removeEnabled = False
     combobox.noneEnabled = True
     combobox.showHidden = False
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(combobox, key):
         setattr(combobox, key, value)
       else:
@@ -214,7 +214,7 @@ class UICreationHelpers(object):
     progressIndicator.value = value
     progressIndicator.windowTitle = windowTitle
     progressIndicator.labelText = labelText
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(progressIndicator, key):
         setattr(progressIndicator, key, value)
     return progressIndicator
@@ -234,7 +234,7 @@ class UICreationHelpers(object):
     widget.setLayout(rowLayout)
     for element in elements:
       rowLayout.addWidget(element)
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(rowLayout, key):
         setattr(rowLayout, key, value)
     return widget
@@ -308,7 +308,7 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
   def getAllVisibleWidgets():
     lm = slicer.app.layoutManager()
     sliceLogics = lm.mrmlSliceLogics()
-    for n in xrange(sliceLogics.GetNumberOfItems()):
+    for n in range(sliceLogics.GetNumberOfItems()):
       sliceLogic = sliceLogics.GetItemAsObject(n)
       widget = lm.sliceWidget(sliceLogic.GetName())
       if widget.sliceView().visible:
@@ -394,11 +394,11 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
   def updateProgressBar(self, **kwargs):
     progress = kwargs.pop('progress', None)
     assert progress, "Keyword argument progress (instance of QProgressDialog) is missing"
-    for key, value in kwargs.iteritems():
+    for key, value in iter(kwargs.items()):
       if hasattr(progress, key):
         setattr(progress, key, value)
       else:
-        print "key %s not found" % key
+        print("key %s not found" % key)
     slicer.app.processEvents()
 
   @staticmethod
@@ -711,12 +711,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
         return ""
 
   @staticmethod
-  @multimethod(dicom.dataset.FileDataset, [str, unicode])
+  @multimethod(dicom.dataset.FileDataset, [str])
   def getDICOMValue(dataset, tag):
     return ModuleLogicMixin.getDICOMValue(dataset, tag, "")
 
   @staticmethod
-  @multimethod(dicom.dataset.FileDataset, [str, unicode], [str, unicode])
+  @multimethod(dicom.dataset.FileDataset, [str], [str])
   def getDICOMValue(dataset, tagName, default=""):
     try:
       value = getattr(dataset, tagName)
@@ -725,12 +725,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
     return value
 
   @staticmethod
-  @multimethod([str, unicode], [str, unicode])
+  @multimethod([str], [str])
   def getDICOMValue(currentFile, tag):
     return ModuleLogicMixin.getDICOMValue(currentFile, tag, "")
 
   @staticmethod
-  @multimethod([str, unicode], [str, unicode], [str, unicode])
+  @multimethod([str], [str], [str])
   def getDICOMValue(currentFile, tag, default):
     try:
       return slicer.dicomDatabase.fileValue(currentFile, tag)
@@ -739,12 +739,12 @@ class ModuleLogicMixin(GeneralModuleMixin):
     return default
 
   @staticmethod
-  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode])
+  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str])
   def getDICOMValue(volumeNode, tag):
     return ModuleLogicMixin.getDICOMValue(volumeNode, tag, "")
 
   @staticmethod
-  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str, unicode], [str, unicode])
+  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str], [str])
   def getDICOMValue(volumeNode, tag, default):
     try:
       if volumeNode.GetStorageNode():

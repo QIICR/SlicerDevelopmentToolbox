@@ -7,12 +7,12 @@ import ctk
 import qt
 import slicer
 import vtk
-from constants import DICOMTAGS
-from decorators import singleton
-from events import SlicerDevelopmentToolboxEvents
-from helpers import SmartDICOMReceiver, DICOMDirectorySender
-from mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
-from icons import Icons
+from SlicerDevelopmentToolboxUtils.constants import DICOMTAGS
+from SlicerDevelopmentToolboxUtils.decorators import singleton
+from SlicerDevelopmentToolboxUtils.events import SlicerDevelopmentToolboxEvents
+from SlicerDevelopmentToolboxUtils.helpers import SmartDICOMReceiver, DICOMDirectorySender
+from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin, ParameterNodeObservationMixin
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 
 @singleton
