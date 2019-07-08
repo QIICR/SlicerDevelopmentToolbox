@@ -1,11 +1,14 @@
+from __future__ import absolute_import
 import vtk
 import ctk
 import json
 from collections import OrderedDict
 
-from .FormGenerator import *
+from SlicerDevelopmentToolboxUtils.forms.FormGenerator import *
 
 from SlicerDevelopmentToolboxUtils.mixins import UICreationHelpers, GeneralModuleMixin
+from six.moves import filter
+import six
 
 # TODO: definitions are not resolved right now
 
@@ -29,7 +32,7 @@ class JSONFieldFactory(object):
     dataType = schema.get('type')
     if dataType == "object":
       return JSONObjectField
-    elif schema.has_key("enum"):
+    elif "enum" in schema:
         return JSONEnumField
     else:
       if dataType == "string":
@@ -70,12 +73,12 @@ class AbstractField(GeneralModuleMixin):
 
   def execAndGetReturnValue(self, code):
     code = code.replace("callback:", "")
-    commands = filter((lambda x: len(x) > 0), code.split(';'))
+    commands = list(filter((lambda x: len(x) > 0), code.split(';')))
     for idx, command in enumerate(commands):
       if idx == len(commands)-1:
         break
-      exec command in locals()
-    exec "returnValue={}".format(commands[-1]) in locals()
+      exec(command, locals())
+    exec("returnValue={}".format(commands[-1]), locals())
     return returnValue
 
   def isValid(self):
@@ -100,7 +103,7 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
       value = self._defaultSettings.value(self.title)
     if not value and self._schema.get("default"):
       value = self._schema["default"]
-      value = self.execAndGetReturnValue(value) if type(value) in [str, unicode] and "callback:" in value else value
+      value = self.execAndGetReturnValue(value) if type(value) in [str, six.text_type] and "callback:" in value else value
     return value
 
   def getDefaultJSONValue(self):
@@ -131,7 +134,7 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
 
   def restoreJSONDefaults(self):
     value = self._elem.property("default")
-    self._elem.setText(self.execAndGetReturnValue(value) if type(value) in [str, unicode] and "callback:" in value else value)
+    self._elem.setText(self.execAndGetReturnValue(value) if type(value) in [str, six.text_type] and "callback:" in value else value)
 
 
 class JSONObjectField(qt.QWidget, AbstractField):
@@ -168,7 +171,7 @@ class JSONObjectField(qt.QWidget, AbstractField):
       schema = self._schema['properties']
     if self._schema.get('required'):
       requiredElements = self._schema['required']
-    for title, obj in schema.items():
+    for title, obj in list(schema.items()):
       fieldObjectClass = JSONFieldFactory.getJSONFieldClass(obj)
       self._addElement(fieldObjectClass(title, obj,
                                         required=title in requiredElements, defaultSettings=self._defaultSettings))

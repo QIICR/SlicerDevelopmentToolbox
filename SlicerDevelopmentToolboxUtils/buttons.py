@@ -1,9 +1,9 @@
 import vtk
 import qt
 import slicer
-from mixins import ModuleWidgetMixin, GeneralModuleMixin
-from widgets import SettingsMessageBox, DICOMConnectionTestWidget
-from icons import Icons
+from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, GeneralModuleMixin
+from SlicerDevelopmentToolboxUtils.widgets import SettingsMessageBox, DICOMConnectionTestWidget
+from SlicerDevelopmentToolboxUtils.icons import Icons
 
 
 class BasicIconButton(qt.QPushButton, GeneralModuleMixin):

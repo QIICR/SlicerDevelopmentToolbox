@@ -1,5 +1,6 @@
+from __future__ import absolute_import
 import os
-from .JSONFormGenerator import JSONFormGenerator
+from SlicerDevelopmentToolboxUtils.forms.JSONFormGenerator import JSONFormGenerator
 
 
 class FormGeneratorFactory(object):
