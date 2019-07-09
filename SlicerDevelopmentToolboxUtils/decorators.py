@@ -1,8 +1,11 @@
+from __future__ import absolute_import
+from __future__ import print_function
 from functools import wraps
 import itertools
 import logging
 import inspect
 import slicer
+from six.moves import map
 
 
 class logmethod(object):
@@ -226,7 +229,7 @@ def multimethod(*types):
 
   def getStringifiedClasses(t):
     if type(t) is list:
-      return map(getStringifiedClasses, t)
+      return list(map(getStringifiedClasses, t))
     else:
       return t.__name__ if not type(t) is str else t
 
@@ -250,7 +253,7 @@ def timer(func):
     startTime = time.time()
     x = func(*args, **kwargs)
     duration = time.time() - startTime
-    print("{} ran in: {0} seconds".format(func.__name__, duration))
+    print(("{} ran in: {0} seconds".format(func.__name__, duration)))
     return x
 
   return _new_function
