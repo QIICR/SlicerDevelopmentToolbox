@@ -1,8 +1,9 @@
+from __future__ import absolute_import
 import qt
 import os
 import slicer
 
-from .FormGeneratorFactory import FormGeneratorFactory
+from SlicerDevelopmentToolboxUtils.forms.FormGeneratorFactory import FormGeneratorFactory
 
 
 class FormsDialog(qt.QDialog):
