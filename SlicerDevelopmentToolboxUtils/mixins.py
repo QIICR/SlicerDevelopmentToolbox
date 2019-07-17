@@ -6,8 +6,6 @@ import sitkUtils
 from packaging import version
 import dicom
 
-from SlicerDevelopmentToolboxUtils.decorators import multimethod
-
 
 class ParameterNodeObservationMixin(object):
   """
@@ -711,50 +709,25 @@ class ModuleLogicMixin(GeneralModuleMixin):
         return ""
 
   @staticmethod
-  @multimethod(dicom.dataset.FileDataset, [str])
-  def getDICOMValue(dataset, tag):
-    return ModuleLogicMixin.getDICOMValue(dataset, tag, "")
-
-  @staticmethod
-  @multimethod(dicom.dataset.FileDataset, [str], [str])
-  def getDICOMValue(dataset, tagName, default=""):
+  def getDICOMValue(inputArg, tagName, default=""):
     try:
-      value = getattr(dataset, tagName)
-    except AttributeError:
+      if type(inputArg) is dicom.dataset.FileDataset:
+        value = getattr(inputArg, tagName)
+      elif type(inputArg) is str and os.path.isfile(inputArg):
+        value = slicer.dicomDatabase.fileValue(inputArg, tagName)
+      elif type(inputArg) is slicer.vtkMRMLScalarVolumeNode:
+        f = inputArg.GetStorageNode().GetFileName()
+        value = slicer.dicomDatabase.fileValue(f, tagName)
+      elif type(inputArg) is slicer.vtkMRMLMultiVolumeNode:
+        f = slicer.dicomDatabase.fileForInstance(inputArg.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
+        value = slicer.dicomDatabase.fileValue(f, tagName)
+      else:
+        logging.warning("Could not retrieve DICOM tag value from input parameter %s" % inputArg)
+        value = default
+    except Exception as exc:
+      logging.error(exc)
       value = default
     return value
-
-  @staticmethod
-  @multimethod([str], [str])
-  def getDICOMValue(currentFile, tag):
-    return ModuleLogicMixin.getDICOMValue(currentFile, tag, "")
-
-  @staticmethod
-  @multimethod([str], [str], [str])
-  def getDICOMValue(currentFile, tag, default):
-    try:
-      return slicer.dicomDatabase.fileValue(currentFile, tag)
-    except RuntimeError:
-      logging.info("There are problems with accessing DICOM value %s from file %s" % (tag, currentFile))
-    return default
-
-  @staticmethod
-  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str])
-  def getDICOMValue(volumeNode, tag):
-    return ModuleLogicMixin.getDICOMValue(volumeNode, tag, "")
-
-  @staticmethod
-  @multimethod([slicer.vtkMRMLScalarVolumeNode, "vtkMRMLMultiVolumeNode"], [str], [str])
-  def getDICOMValue(volumeNode, tag, default):
-    try:
-      if volumeNode.GetStorageNode():
-        currentFile = volumeNode.GetStorageNode().GetFileName()
-      else:
-        currentFile = slicer.dicomDatabase.fileForInstance(volumeNode.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
-      return ModuleLogicMixin.getDICOMValue(currentFile, tag, default)
-    except (RuntimeError, AttributeError, KeyError):
-      logging.info("There are problems with accessing DICOM value %s from volume node %s" % (tag, volumeNode.GetID()))
-    return default
 
   @staticmethod
   def getFileList(directory):
