@@ -4,7 +4,7 @@ import slicer
 import SimpleITK as sitk
 import sitkUtils
 from packaging import version
-import dicom
+import pydicom
 
 
 class ParameterNodeObservationMixin(object):
@@ -711,7 +711,7 @@ class ModuleLogicMixin(GeneralModuleMixin):
   @staticmethod
   def getDICOMValue(inputArg, tagName, default=""):
     try:
-      if type(inputArg) is dicom.dataset.FileDataset:
+      if type(inputArg) is pydicom.dataset.FileDataset:
         value = getattr(inputArg, tagName)
       elif type(inputArg) is str and os.path.isfile(inputArg):
         value = slicer.dicomDatabase.fileValue(inputArg, tagName)
