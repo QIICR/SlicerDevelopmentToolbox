@@ -3,7 +3,6 @@ import os, logging
 import slicer
 import SimpleITK as sitk
 import sitkUtils
-from packaging import version
 import pydicom
 
 
@@ -466,7 +465,9 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
 
   @staticmethod
   def isQtVersionOlder(than="5.0.0"):
-    return version.parse(qt.Qt.qVersion()) < version.parse(than)
+    # packaging.version is not installed by default, so we cannot use it here
+    from distutils.version import StrictVersion
+    return StrictVersion(qt.Qt.qVersion()) < StrictVersion(than)
 
 
 class ModuleLogicMixin(GeneralModuleMixin):
