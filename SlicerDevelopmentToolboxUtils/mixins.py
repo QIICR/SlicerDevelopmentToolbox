@@ -717,7 +717,7 @@ class ModuleLogicMixin(GeneralModuleMixin):
       elif type(inputArg) is str and os.path.isfile(inputArg):
         value = slicer.dicomDatabase.fileValue(inputArg, tagName)
       elif type(inputArg) is slicer.vtkMRMLScalarVolumeNode:
-        f = inputArg.GetStorageNode().GetFileName()
+        f = slicer.dicomDatabase.fileForInstance(inputArg.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
         value = slicer.dicomDatabase.fileValue(f, tagName)
       elif type(inputArg) is slicer.vtkMRMLMultiVolumeNode:
         f = slicer.dicomDatabase.fileForInstance(inputArg.GetAttribute("DICOM.instanceUIDs").split(" ")[0])
