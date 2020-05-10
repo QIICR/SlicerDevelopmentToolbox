@@ -443,7 +443,7 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
     byteArray = qt.QByteArray()
     buffer = qt.QBuffer(byteArray)
     pixmap.save(buffer, "PNG")
-    return "data:image/png;base64," + byteArray.toBase64().data()
+    return "data:image/png;base64," + byteArray.toBase64().data().decode("utf-8")
 
   def showMainAppToolbars(self, show=True):
     w = slicer.util.mainWindow()
