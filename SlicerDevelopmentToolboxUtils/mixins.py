@@ -713,7 +713,10 @@ class ModuleLogicMixin(GeneralModuleMixin):
   def getDICOMValue(inputArg, tagName, default=""):
     try:
       if type(inputArg) is pydicom.dataset.FileDataset:
-        value = getattr(inputArg, tagName)
+        if hasattr(inputArg, tagName):
+          value = getattr(inputArg, tagName)
+        else:
+          value = default
       elif type(inputArg) is str and os.path.isfile(inputArg):
         value = slicer.dicomDatabase.fileValue(inputArg, tagName)
       elif type(inputArg) is slicer.vtkMRMLScalarVolumeNode:
@@ -726,6 +729,8 @@ class ModuleLogicMixin(GeneralModuleMixin):
         logging.warning("Could not retrieve DICOM tag value from input parameter %s" % inputArg)
         value = default
     except Exception as exc:
+      import traceback
+      traceback.print_exc()
       logging.error(exc)
       value = default
     return value
