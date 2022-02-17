@@ -7,8 +7,6 @@ from collections import OrderedDict
 from SlicerDevelopmentToolboxUtils.forms.FormGenerator import *
 
 from SlicerDevelopmentToolboxUtils.mixins import UICreationHelpers, GeneralModuleMixin
-from six.moves import filter
-import six
 
 # TODO: definitions are not resolved right now
 
@@ -74,12 +72,13 @@ class AbstractField(GeneralModuleMixin):
   def execAndGetReturnValue(self, code):
     code = code.replace("callback:", "")
     commands = list(filter((lambda x: len(x) > 0), code.split(';')))
+    _locals = locals()
     for idx, command in enumerate(commands):
       if idx == len(commands)-1:
         break
-      exec(command, locals())
-    exec("returnValue={}".format(commands[-1]), locals())
-    return returnValue
+      exec(command, _locals)
+    exec("returnValue={}".format(commands[-1]), _locals)
+    return _locals['returnValue']
 
   def isValid(self):
     raise NotImplementedError
@@ -103,7 +102,7 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
       value = self._defaultSettings.value(self.title)
     if not value and self._schema.get("default"):
       value = self._schema["default"]
-      value = self.execAndGetReturnValue(value) if type(value) in [str, six.text_type] and "callback:" in value else value
+      value = self.execAndGetReturnValue(value) if type(value) == str and "callback:" in value else value
     return value
 
   def getDefaultJSONValue(self):
@@ -134,7 +133,7 @@ class AbstractFieldWidget(qt.QWidget, AbstractField):
 
   def restoreJSONDefaults(self):
     value = self._elem.property("default")
-    self._elem.setText(self.execAndGetReturnValue(value) if type(value) in [str, six.text_type] and "callback:" in value else value)
+    self._elem.setText(self.execAndGetReturnValue(value) if type(value) == str and "callback:" in value else value)
 
 
 class JSONObjectField(qt.QWidget, AbstractField):
