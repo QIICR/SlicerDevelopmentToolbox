@@ -1,9 +1,8 @@
 from __future__ import absolute_import
 from abc import abstractmethod, ABCMeta
 import qt
-import six
 
-class FormGenerator(six.with_metaclass(ABCMeta, object)):
+class FormGenerator(metaclass=ABCMeta):
 
   CustomFrameClass = None
 
@@ -37,7 +36,7 @@ class FormGenerator(six.with_metaclass(ABCMeta, object)):
     return self._extendQtGuiElementProperties(comboBox, **kwargs)
 
   def _extendQtGuiElementProperties(self, element, **kwargs):
-    for key, value in six.iteritems(kwargs):
+    for key, value in kwargs.items():
       if hasattr(element, key):
         setattr(element, key, value)
       else:

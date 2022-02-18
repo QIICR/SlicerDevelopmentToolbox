@@ -347,10 +347,10 @@ class CrosshairButton(CheckableIconButton):
     self._showSliceIntersection(False)
 
   def _showSliceIntersection(self, show):
-    viewNodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLSliceCompositeNode')
-    viewNodes.UnRegister(slicer.mrmlScene)
-    viewNodes.InitTraversal()
-    viewNode = viewNodes.GetNextItemAsObject()
-    while viewNode:
-      viewNode.SetSliceIntersectionVisibility(show)
-      viewNode = viewNodes.GetNextItemAsObject()
+    sliceDisplayNodes = slicer.util.getNodesByClass("vtkMRMLSliceDisplayNode")
+    for sliceDisplayNode in sliceDisplayNodes:
+      sliceDisplayNode.SetIntersectingSlicesVisibility(1)
+    # Force update of slice views
+    sliceNodes = slicer.util.getNodesByClass("vtkMRMLSliceNode")
+    for sliceNode in sliceNodes:
+      sliceNode.Modified()
