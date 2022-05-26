@@ -307,7 +307,7 @@ class ModuleWidgetMixin(GeneralModuleMixin, UICreationHelpers):
     sliceLogics = lm.mrmlSliceLogics()
     for n in range(sliceLogics.GetNumberOfItems()):
       sliceLogic = sliceLogics.GetItemAsObject(n)
-      widget = lm.sliceWidget(sliceLogic.GetName())
+      widget = lm.sliceWidget(sliceLogic.GetSliceNode().GetName())
       if widget.sliceView().visible:
          yield widget
 
