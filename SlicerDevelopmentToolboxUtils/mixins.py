@@ -539,11 +539,8 @@ class ModuleLogicMixin(GeneralModuleMixin):
 
   @staticmethod
   def get3DEuclideanDistance(pos1, pos2):
-    rulerNode = slicer.vtkMRMLAnnotationRulerNode()
-    rulerNode.SetPosition1(pos1)
-    rulerNode.SetPosition2(pos2)
-    distance3D = rulerNode.GetDistanceMeasurement()
-    return distance3D
+    import numpy as np
+    return np.linalg.norm(np.array(pos1)-np.array(pos2))
 
   @staticmethod
   def dilateMask(label, dilateValue=1.0, erodeValue=0.0, marginSize=5.0):
