@@ -4,12 +4,12 @@ project(SlicerDevelopmentToolbox)
 
 #-----------------------------------------------------------------------------
 # Extension meta-information
-set(EXTENSION_HOMEPAGE "http://wiki.slicer.org/slicerWiki/index.php/Documentation/Nightly/Extensions/SlicerDevelopmentToolbox")
-set(EXTENSION_CATEGORY "Informatics Utilities 'Developer Tools'")
+set(EXTENSION_HOMEPAGE "https://www.slicer.org/wiki/Documentation/Nightly/Extensions/SlicerDevelopmentToolbox")
+set(EXTENSION_CATEGORY "Developer Tools")
 set(EXTENSION_CONTRIBUTORS "Christian Herz (Brigham and Women's Hospital), Andrey Fedorov (Brigham and Women's Hospital)")
 set(EXTENSION_DESCRIPTION "SlicerDevelopmentToolbox extension facilitates the development process of modules/extensions with a large variety of widgets, helpers, decorators, events, constants and mixin classes")
-set(EXTENSION_ICONURL "http://raw.githubusercontent.com/QIICR/SlicerDevelopmentToolbox/master/Resources/Icons/SlicerDevelopmentToolbox.png")
-set(EXTENSION_SCREENSHOTURLS "")
+set(EXTENSION_ICONURL "https://raw.githubusercontent.com/QIICR/SlicerDevelopmentToolbox/master/Resources/Icons/SlicerDevelopmentToolbox.png")
+set(EXTENSION_SCREENSHOTURLS "https://www.slicer.org/slicerWiki/images/0/0b/IncomingDataWindow.png https://www.slicer.org/slicerWiki/images/2/22/ModuleSettingsWidget.png https://www.slicer.org/slicerWiki/images/c/c9/RatingWindow.png https://www.slicer.org/slicerWiki/images/2/2a/TargetCreationWidget.png https://www.slicer.org/slicerWiki/images/e/ea/Watchbox.png")
 
 #-----------------------------------------------------------------------------
 # Extension dependencies
